@@ -1,6 +1,7 @@
 package io.github.taxledgr.runecompanion.features
 
 import io.github.taxledgr.runecompanion.toolkit.HiscoreSummary
+import io.github.taxledgr.runecompanion.toolkit.ActivityScore
 import io.github.taxledgr.runecompanion.toolkit.SkillScore
 import io.github.taxledgr.runecompanion.toolkit.TrackedPlayerProfile
 import org.junit.Assert.assertEquals
@@ -97,5 +98,26 @@ class FeatureModelsTest {
         assertEquals(2, migrated.accounts.single().snapshots.size)
         assertEquals(1, migrated.goals.size)
         assertEquals(migrated, migrated.withTrackedPlayer(TrackedPlayerProfile("player")))
+    }
+
+    @Test
+    fun activityHistoryCalculatesAutomaticBossGains() {
+        val now = 2_000_000_000L
+        fun summary(score: Long) = HiscoreSummary(
+            player = "Player",
+            skills = emptyList(),
+            activities = listOf(ActivityScore("Vorkath", 1, score)),
+        )
+        val profile = AccountProfile(
+            username = "Player",
+            snapshots = listOf(
+                StatSnapshot(now - 2 * 24 * 60 * 60_000L, summary(100)),
+                StatSnapshot(now - 24 * 60 * 60_000L, summary(110)),
+                StatSnapshot(now, summary(125)),
+            ),
+        )
+
+        assertEquals(15L, profile.activityGained("Vorkath", now - 24 * 60 * 60_000L))
+        assertEquals(0L, profile.activityGained("Zulrah", now - 24 * 60 * 60_000L))
     }
 }

@@ -69,9 +69,16 @@ data class SkillScore(
     val xp: Long,
 )
 
+data class ActivityScore(
+    val name: String,
+    val rank: Int,
+    val score: Long,
+)
+
 data class HiscoreSummary(
     val player: String,
     val skills: List<SkillScore>,
+    val activities: List<ActivityScore> = emptyList(),
 )
 
 data class TrackedPlayerProfile(
@@ -111,6 +118,9 @@ data class PersistedToolkitData(
 
 fun HiscoreSummary.skill(name: String): SkillScore? =
     skills.firstOrNull { it.name == name }
+
+fun HiscoreSummary.activity(name: String): ActivityScore? =
+    activities.firstOrNull { it.name.equals(name, ignoreCase = true) }
 
 fun HiscoreSummary.xpGainedSince(baseline: HiscoreSummary, skillName: String): Long {
     val currentXp = skill(skillName)?.xp ?: return 0

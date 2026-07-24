@@ -5,7 +5,7 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 1.1.1
+## Version 1.2
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
 - Expandable fastest-route guidance on every one of the 82 star cards, ranked
@@ -30,9 +30,14 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - OSRS XP, cumulative drop-rate, and supply-cost calculators
 - Clue, fairy-ring, teleport, quest, diary, and boss reference links
 - Multiple public-hiscore profiles with timestamped daily and weekly XP history
+- Automatic named public-hiscore counters for Sailing, clues, minigames, raids,
+  and current bosses, with daily and weekly gains
 - Skill-goal and banked-XP planners
 - GE target notifications, portfolio cost basis, 1% tax, and net-profit tracking
 - Farming patch dashboard, Slayer knowledge cards, and boss/raid session logs
+- Searchable category tabs and auto-filled presets for 151 Slayer assignments,
+  25+ detailed Slayer cards, farming patches/crops, banked XP, collection
+  targets, activities, routines, Combat Achievement tiers, and loadouts
 - Collection dry-streak probabilities and Combat Achievement planning
 - Searchable clue helper and points-based minigame calculator
 - Player-specific teleport route planner covering spellbooks, tablets, jewellery,
@@ -131,7 +136,9 @@ Enter an OSRS display name under **More → App settings → Tracked player**. R
 - refreshes at most every 10 minutes while the app is open;
 - asks Android WorkManager to refresh every 15 minutes when the app is closed;
 - stores the latest and baseline snapshots locally; and
-- shows total and per-skill XP gained since the baseline.
+- shows total and per-skill XP gained since the baseline; and
+- records named public boss, raid, clue, minigame, collection-log, and Sailing
+  counters for automatic 24-hour and 7-day progress.
 
 Android may delay background work because of battery optimisation or network conditions, and the official hiscores can lag behind recent in-game XP. No Jagex login, password, or game-client access is used.
 
@@ -139,6 +146,27 @@ For several characters, use **More → Multi-account profiles**. These profiles
 refresh every 10 minutes while Rune Companion is open (and through Android's
 15-minute background scheduler), retaining recent snapshots plus compact hourly
 history for the daily and weekly XP view.
+
+## Automatic data and selectable presets
+
+Rune Companion automates data that is available without inspecting the game:
+
+- public skills, XP, boss KCs, raid completions, clues, minigames, Sailing, and
+  collection-log count from Jagex hiscores;
+- item names and live prices from the OSRS Wiki price API;
+- worlds from Jagex and Shooting Stars from Star Miners; and
+- growth times, Slayer references, drop-rate defaults, routines, and loadout
+  starting points from the app's selectable catalogues.
+
+Choose **Preset** in a supported tool, select a category tab, and search or tap
+an entry. The fields are filled automatically and remain editable before saving.
+Choose **Custom** for anything not in the catalogue.
+
+Inventory, bank contents, equipped items, current Slayer assignment, quest and
+diary state, POH unlocks, current position, loot, and supply use are not exposed
+by public hiscores. Those remain explicit selections or local counters so Rune
+Companion can stay passive and avoid screen capture, OCR, Accessibility Services,
+or game-client hooks.
 
 ## Build
 
@@ -188,7 +216,7 @@ Companion or clears storage. If Android reports an incompatible signature or a
 lower version code, build with the same signing key and a higher version instead
 of uninstalling—the uninstall would erase private app data.
 
-Rune Companion 1.1.1 also keeps a last-known-good copy of its profile/toolkit
+Since Rune Companion 1.1.1, the app also keeps a last-known-good copy of its profile/toolkit
 documents, migrates the original tracked-player profile into the multi-account
 list, and opts its preferences into encrypted Android backup and phone-to-phone
 transfer. Android cloud restore depends on backup being enabled for the phone's

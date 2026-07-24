@@ -21,7 +21,7 @@ class HiscoreClient {
             connection.readTimeout = 12_000
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/0.5 (github.com/Taxledgr/rune-companion)",
+                "Rune Companion/1.2 (github.com/Taxledgr/rune-companion)",
             )
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_NOT_FOUND ->
@@ -30,17 +30,7 @@ class HiscoreClient {
                     throw IOException("Official hiscores returned HTTP ${connection.responseCode}")
             }
             val lines = connection.inputStream.bufferedReader().use { it.readLines() }
-            val skills = SKILL_NAMES.mapIndexedNotNull { index, name ->
-                val values = lines.getOrNull(index)?.split(",") ?: return@mapIndexedNotNull null
-                if (values.size < 3) return@mapIndexedNotNull null
-                SkillScore(
-                    name = name,
-                    rank = values[0].toIntOrNull() ?: -1,
-                    level = values[1].toIntOrNull() ?: -1,
-                    xp = values[2].toLongOrNull() ?: -1,
-                )
-            }
-            HiscoreSummary(player = cleanPlayer, skills = skills)
+            parseHiscoreLines(cleanPlayer, lines)
         } finally {
             connection.disconnect()
         }
@@ -49,31 +39,32 @@ class HiscoreClient {
     private companion object {
         const val ENDPOINT =
             "https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws"
-        val SKILL_NAMES = listOf(
-            "Overall",
-            "Attack",
-            "Defence",
-            "Strength",
-            "Hitpoints",
-            "Ranged",
-            "Prayer",
-            "Magic",
-            "Cooking",
-            "Woodcutting",
-            "Fletching",
-            "Fishing",
-            "Firemaking",
-            "Crafting",
-            "Smithing",
-            "Mining",
-            "Herblore",
-            "Agility",
-            "Thieving",
-            "Slayer",
-            "Farming",
-            "Runecraft",
-            "Hunter",
-            "Construction",
+    }
+}
+
+internal fun parseHiscoreLines(player: String, lines: List<String>): HiscoreSummary {
+    val skills = HiscoreCatalog.skillNames.mapIndexedNotNull { index, name ->
+        val values = lines.getOrNull(index)?.trim()?.split(",")
+            ?: return@mapIndexedNotNull null
+        if (values.size < 3) return@mapIndexedNotNull null
+        SkillScore(
+            name = name,
+            rank = values[0].toIntOrNull() ?: -1,
+            level = values[1].toIntOrNull() ?: -1,
+            xp = values[2].toLongOrNull() ?: -1,
         )
     }
+    val activities = HiscoreCatalog.activityNames.mapIndexedNotNull { index, name ->
+        val values = lines.getOrNull(HiscoreCatalog.skillNames.size + index)
+            ?.trim()?.split(",") ?: return@mapIndexedNotNull null
+        if (values.size < 2) return@mapIndexedNotNull null
+        val score = values[1].toLongOrNull() ?: return@mapIndexedNotNull null
+        if (score <= 0) return@mapIndexedNotNull null
+        ActivityScore(
+            name = name,
+            rank = values[0].toIntOrNull() ?: -1,
+            score = score,
+        )
+    }
+    return HiscoreSummary(player = player, skills = skills, activities = activities)
 }

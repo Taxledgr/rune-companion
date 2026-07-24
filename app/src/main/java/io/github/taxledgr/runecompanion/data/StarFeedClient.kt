@@ -24,7 +24,7 @@ class StarFeedClient(
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/0.5 (github.com/Taxledgr/rune-companion)",
+                "Rune Companion/1.2 (github.com/Taxledgr/rune-companion)",
             )
 
             val responseCode = connection.responseCode

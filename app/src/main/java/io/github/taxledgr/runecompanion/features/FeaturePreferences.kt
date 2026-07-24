@@ -2,6 +2,7 @@ package io.github.taxledgr.runecompanion.features
 
 import android.content.Context
 import io.github.taxledgr.runecompanion.toolkit.HiscoreSummary
+import io.github.taxledgr.runecompanion.toolkit.ActivityScore
 import io.github.taxledgr.runecompanion.toolkit.SkillScore
 import org.json.JSONArray
 import org.json.JSONObject
@@ -134,6 +135,12 @@ class FeaturePreferences(context: Context) {
                 .put("level", skill.level)
                 .put("xp", skill.xp)
         })
+        put("activities", activities.jsonArray { activity ->
+            JSONObject()
+                .put("name", activity.name)
+                .put("rank", activity.rank)
+                .put("score", activity.score)
+        })
     }
 
     private fun JSONObject?.toSummary(): HiscoreSummary {
@@ -146,6 +153,13 @@ class FeaturePreferences(context: Context) {
                     rank = skill.optInt("rank", -1),
                     level = skill.optInt("level", 1),
                     xp = skill.optLong("xp"),
+                )
+            },
+            activities = array("activities") { activity ->
+                ActivityScore(
+                    name = activity.optString("name"),
+                    rank = activity.optInt("rank", -1),
+                    score = activity.optLong("score"),
                 )
             },
         )
@@ -204,8 +218,10 @@ class FeaturePreferences(context: Context) {
 
     private fun CollectionGoal.toJson() = JSONObject().put("id", id).put("item", item)
         .put("denominator", dropRateDenominator).put("attempts", attempts).put("obtained", obtained)
+        .put("sourceActivity", sourceActivity ?: JSONObject.NULL)
     private fun JSONObject.toCollectionGoal() = CollectionGoal(
-        optString("id"), optString("item"), optInt("denominator"), optInt("attempts"), optBoolean("obtained"),
+        optString("id"), optString("item"), optInt("denominator"), optInt("attempts"),
+        optBoolean("obtained"), optStringOrNull("sourceActivity"),
     )
 
     private fun Routine.toJson() = JSONObject().put("id", id).put("title", title)
@@ -265,6 +281,6 @@ class FeaturePreferences(context: Context) {
         const val PREFERENCES_NAME = "rune_companion_features"
         private const val KEY_DATA = "feature_data"
         private const val KEY_DATA_RECOVERY = "feature_data_recovery"
-        private const val CURRENT_SCHEMA_VERSION = 1
+        private const val CURRENT_SCHEMA_VERSION = 2
     }
 }

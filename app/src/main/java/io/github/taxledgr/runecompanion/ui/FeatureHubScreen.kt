@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -38,11 +39,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.taxledgr.runecompanion.features.AccountProfile
+import io.github.taxledgr.runecompanion.features.CompanionCatalog
 import io.github.taxledgr.runecompanion.features.FeatureState
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.features.Spellbook
 import io.github.taxledgr.runecompanion.features.TeleportCatalog
 import io.github.taxledgr.runecompanion.features.TeleportKind
+import io.github.taxledgr.runecompanion.features.activityGained
 import io.github.taxledgr.runecompanion.features.dropChancePercent
 import io.github.taxledgr.runecompanion.features.magicLevel
 import io.github.taxledgr.runecompanion.features.profitAfterTax
@@ -54,6 +57,7 @@ import io.github.taxledgr.runecompanion.features.totalXp
 import io.github.taxledgr.runecompanion.features.xpGained
 import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
+import io.github.taxledgr.runecompanion.toolkit.activity
 import io.github.taxledgr.runecompanion.toolkit.formatDuration
 import java.text.NumberFormat
 import java.time.Duration
@@ -74,8 +78,8 @@ private enum class CompanionFeature(
     PORTFOLIO("GE portfolio & tax", "Track positions, 1% GE tax, and net profit.", "Economy"),
     FARMING("Farming dashboard", "Patch, crop, readiness, and notes.", "Activities"),
     SLAYER("Slayer knowledge cards", "Personal weaknesses, locations, gear, and notes.", "Activities"),
-    SESSIONS("Boss & raid sessions", "Kills, time, loot, supplies, and net value.", "Activities"),
-    COLLECTION("Collection & dry streaks", "Attempts and cumulative drop chance.", "Activities"),
+    SESSIONS("Boss & raid sessions", "Automatic public counters plus local trip results.", "Activities"),
+    COLLECTION("Collection & dry streaks", "Preset rates, public KCs, and drop chance.", "Activities"),
     CLUES("Clue companion", "Search the OSRS Wiki directly for any clue step.", "Planners"),
     TELEPORTS("Teleport route planner", "Player-specific spells, tabs, items, jewellery, and POH.", "Planners"),
     DPS("Manual DPS comparison", "Compare two loadouts without reading the game client.", "Planners"),
@@ -280,9 +284,10 @@ private fun AccountsScreen(state: FeatureState, viewModel: FeatureViewModel) {
     FeatureList {
         item {
             InfoCard(
-                "Public hiscores only",
+                "Automatic public data",
                 "Rune Companion refreshes saved accounts every 10 minutes while open. " +
-                    "Hiscores expose levels and XP, not inventory, quests, or current activity.",
+                    "Hiscores expose skills, XP, Sailing, clues, activities, raids, and boss " +
+                    "counts—not inventory, quests, gear, or the current Slayer assignment.",
             )
             Field(username, { username = it }, "OSRS display name")
             Button(
@@ -381,7 +386,14 @@ private fun GoalsScreen(
     FeatureList {
         item {
             Text("Using ${profile?.username ?: "no selected profile"}")
-            Field(skill, { skill = it }, "Skill")
+            CatalogPicker(
+                title = "Skill",
+                options = CompanionCatalog.skills,
+                category = ::skillCategory,
+                label = { it },
+                selectedLabel = skill,
+                onSelect = { skill = it },
+            )
             Field(target, { target = it }, "Target level")
             Field(xpAction, { xpAction = it }, "XP per action")
             Button(onClick = {
@@ -405,12 +417,28 @@ private fun GoalsScreen(
 
 @Composable
 private fun BankedXpScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var item by remember { mutableStateOf("") }
     var skill by remember { mutableStateOf("Herblore") }
     var quantity by remember { mutableStateOf("") }
     var xpEach by remember { mutableStateOf("") }
     FeatureList {
         item {
+            EntryModeTabs(presetMode) { presetMode = it }
+            if (presetMode) {
+                CatalogPicker(
+                    title = "Training method",
+                    options = CompanionCatalog.bankedXp,
+                    category = { it.category },
+                    label = { it.item },
+                    selectedLabel = item,
+                    onSelect = { preset ->
+                        item = preset.item
+                        skill = preset.skill
+                        xpEach = preset.xpEach.toString()
+                    },
+                )
+            }
             Field(item, { item = it }, "Banked item / action")
             Field(skill, { skill = it }, "Skill")
             Field(quantity, { quantity = it }, "Quantity")
@@ -548,6 +576,7 @@ private fun ActivityFeature(
 
 @Composable
 private fun FarmingScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var patch by remember { mutableStateOf("") }
     var crop by remember { mutableStateOf("") }
     var minutes by remember { mutableStateOf("") }
@@ -555,6 +584,29 @@ private fun FarmingScreen(state: FeatureState, viewModel: FeatureViewModel) {
     val now = System.currentTimeMillis()
     FeatureList {
         item {
+            EntryModeTabs(presetMode) { presetMode = it }
+            if (presetMode) {
+                CatalogPicker(
+                    title = "Patch",
+                    options = CompanionCatalog.farmPatches,
+                    category = { it.category },
+                    label = { it.name },
+                    selectedLabel = patch,
+                    onSelect = { patch = it.name },
+                )
+                CatalogPicker(
+                    title = "Crop",
+                    options = CompanionCatalog.crops,
+                    category = { it.category },
+                    label = { it.name },
+                    selectedLabel = crop,
+                    onSelect = { preset ->
+                        crop = preset.name
+                        minutes = preset.minutes.toString()
+                        if (note.isBlank()) note = preset.note
+                    },
+                )
+            }
             Field(patch, { patch = it }, "Patch (for example Catherby herb)")
             Field(crop, { crop = it }, "Crop")
             Field(minutes, { minutes = it }, "Ready in minutes")
@@ -579,6 +631,7 @@ private fun FarmingScreen(state: FeatureState, viewModel: FeatureViewModel) {
 
 @Composable
 private fun SlayerCardsScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var monster by remember { mutableStateOf("") }
     var weakness by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
@@ -586,8 +639,30 @@ private fun SlayerCardsScreen(state: FeatureState, viewModel: FeatureViewModel) 
     var notes by remember { mutableStateOf("") }
     FeatureList {
         item {
+            EntryModeTabs(presetMode) { presetMode = it }
+            if (presetMode) {
+                InfoCard(
+                    "Slayer catalogue",
+                    "Select a task to fill the suggested style, locations, required items, " +
+                        "and notes. You can edit every field before saving.",
+                )
+                CatalogPicker(
+                    title = "Slayer task",
+                    options = CompanionCatalog.slayer,
+                    category = { it.category },
+                    label = { it.monster },
+                    selectedLabel = monster,
+                    onSelect = { preset ->
+                        monster = preset.monster
+                        weakness = preset.style
+                        location = preset.locations
+                        itemsText = preset.requiredItems
+                        notes = preset.notes
+                    },
+                )
+            }
             Field(monster, { monster = it }, "Monster")
-            Field(weakness, { weakness = it }, "Weakness / attack style")
+            Field(weakness, { weakness = it }, "Suggested style / protection")
             Field(location, { location = it }, "Locations")
             Field(itemsText, { itemsText = it }, "Required items")
             Field(notes, { notes = it }, "Notes")
@@ -608,14 +683,41 @@ private fun SlayerCardsScreen(state: FeatureState, viewModel: FeatureViewModel) 
 
 @Composable
 private fun SessionsScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var activity by remember { mutableStateOf("") }
     var kills by remember { mutableStateOf("") }
     var minutes by remember { mutableStateOf("") }
     var loot by remember { mutableStateOf("") }
     var supplies by remember { mutableStateOf("") }
+    val profile = state.data.accounts.firstOrNull {
+        it.username.equals(state.data.selectedAccount, ignoreCase = true)
+    }
+    val publicCount = profile?.latest?.summary?.activity(activity)?.score
+    val now = System.currentTimeMillis()
     FeatureList {
         item {
+            EntryModeTabs(presetMode) { presetMode = it }
+            if (presetMode) {
+                CatalogPicker(
+                    title = "Boss, raid, clue, or activity",
+                    options = CompanionCatalog.activities,
+                    category = { it.category },
+                    label = { it.name },
+                    selectedLabel = activity,
+                    onSelect = { activity = it.name },
+                )
+            }
             Field(activity, { activity = it }, "Boss / raid")
+            if (publicCount != null) {
+                InfoCard(
+                    "Automatic public counter",
+                    "${profile.username}: ${number(publicCount)} total • " +
+                        "${number(profile.activityGained(activity, now - 24 * 60 * 60_000L))} " +
+                        "in 24h • " +
+                        "${number(profile.activityGained(activity, now - 7 * 24 * 60 * 60_000L))} " +
+                        "in 7 days.",
+                )
+            }
             Field(kills, { kills = it }, "Kills / completions")
             Field(minutes, { minutes = it }, "Minutes")
             Field(loot, { loot = it }, "Loot value")
@@ -644,29 +746,80 @@ private fun SessionsScreen(state: FeatureState, viewModel: FeatureViewModel) {
 
 @Composable
 private fun CollectionScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var item by remember { mutableStateOf("") }
     var denominator by remember { mutableStateOf("") }
+    var sourceActivity by remember { mutableStateOf<String?>(null) }
+    val profile = state.data.accounts.firstOrNull {
+        it.username.equals(state.data.selectedAccount, ignoreCase = true)
+    }
     FeatureList {
         item {
+            EntryModeTabs(presetMode) {
+                presetMode = it
+                if (!it) sourceActivity = null
+            }
+            if (presetMode) {
+                CatalogPicker(
+                    title = "Collection target",
+                    options = CompanionCatalog.collections,
+                    category = { it.category },
+                    label = { it.item },
+                    selectedLabel = item,
+                    onSelect = { preset ->
+                        item = preset.item
+                        denominator = preset.denominator.toString()
+                        sourceActivity = preset.sourceActivity
+                    },
+                )
+                Text(
+                    "Preset rates are planning defaults. Verify rates with modifiers such as " +
+                        "task status, raid points, team size, or invocation.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Field(item, { item = it }, "Drop / collection item")
             Field(denominator, { denominator = it }, "Drop rate denominator (1 in …)")
             Button(onClick = {
-                viewModel.addCollectionGoal(item, denominator.toIntOrNull() ?: 0)
+                viewModel.addCollectionGoal(
+                    item,
+                    denominator.toIntOrNull() ?: 0,
+                    sourceActivity,
+                )
             }) { Text("Add goal") }
         }
         items(state.data.collectionGoals) { goal ->
+            val automatic = goal.sourceActivity?.let {
+                profile?.latest?.summary?.activity(it)?.score?.coerceAtMost(Int.MAX_VALUE.toLong())
+                    ?.toInt()
+            }
+            val effectiveAttempts = max(goal.attempts, automatic ?: 0)
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp)) {
                     Text(goal.item, fontWeight = FontWeight.Bold)
                     Text(
-                        "${goal.attempts} attempts at 1/${goal.dropRateDenominator} • " +
-                            "%.1f%% chance by now".format(goal.dropChancePercent()),
+                        "$effectiveAttempts attempts at 1/${goal.dropRateDenominator} • " +
+                            "%.1f%% chance by now".format(
+                                goal.copy(attempts = effectiveAttempts).dropChancePercent(),
+                            ),
                     )
+                    if (automatic != null) {
+                        Text(
+                            "${number(automatic.toLong())} automatically from " +
+                                "${goal.sourceActivity} hiscores",
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        OutlinedButton(onClick = { viewModel.adjustCollection(goal.id, -1) }) {
+                        OutlinedButton(onClick = {
+                            viewModel.setCollectionAttempts(goal.id, effectiveAttempts - 1)
+                        }) {
                             Text("−")
                         }
-                        Button(onClick = { viewModel.adjustCollection(goal.id, 1) }) { Text("+ kill") }
+                        Button(onClick = {
+                            viewModel.setCollectionAttempts(goal.id, effectiveAttempts + 1)
+                        }) { Text("+ kill") }
                         FilterChip(
                             selected = goal.obtained,
                             onClick = { viewModel.toggleCollectionObtained(goal.id) },
@@ -689,7 +842,12 @@ private fun CombatAchievementScreen(state: FeatureState, viewModel: FeatureViewM
     FeatureList {
         item {
             Field(task, { task = it }, "Combat Achievement task")
-            Field(tier, { tier = it }, "Tier")
+            ChoiceChips(
+                title = "Tier",
+                options = listOf("Easy", "Medium", "Hard", "Elite", "Master", "Grandmaster"),
+                selected = tier,
+                onSelect = { tier = it },
+            )
             Button(onClick = { viewModel.addCombatAchievement(task, tier) }) {
                 Text("Add task")
             }
@@ -720,10 +878,25 @@ private fun CombatAchievementScreen(state: FeatureState, viewModel: FeatureViewM
 
 @Composable
 private fun RoutinesScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var title by remember { mutableStateOf("") }
     var weekly by remember { mutableStateOf(false) }
     FeatureList {
         item {
+            EntryModeTabs(presetMode) { presetMode = it }
+            if (presetMode) {
+                CatalogPicker(
+                    title = "Routine",
+                    options = CompanionCatalog.routines,
+                    category = { it.category },
+                    label = { it.title },
+                    selectedLabel = title,
+                    onSelect = { preset ->
+                        title = preset.title
+                        weekly = preset.weekly
+                    },
+                )
+            }
             Field(title, { title = it }, "Routine")
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text(if (weekly) "Weekly" else "Daily")
@@ -753,6 +926,7 @@ private fun RoutinesScreen(state: FeatureState, viewModel: FeatureViewModel) {
 
 @Composable
 private fun LoadoutsScreen(state: FeatureState, viewModel: FeatureViewModel) {
+    var presetMode by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
     var inventory by remember { mutableStateOf("") }
     var equipment by remember { mutableStateOf("") }
@@ -761,9 +935,26 @@ private fun LoadoutsScreen(state: FeatureState, viewModel: FeatureViewModel) {
     FeatureList {
         item {
             InfoCard(
-                "Manual templates",
-                "Paste item names as comma-separated text. Rune Companion never reads your equipment or inventory.",
+                "Selectable templates",
+                "Choose a starting setup or enter a custom one. Rune Companion never reads " +
+                    "your equipment or inventory.",
             )
+            EntryModeTabs(presetMode) { presetMode = it }
+            if (presetMode) {
+                CatalogPicker(
+                    title = "Loadout template",
+                    options = CompanionCatalog.loadouts,
+                    category = { it.category },
+                    label = { it.name },
+                    selectedLabel = name,
+                    onSelect = { preset ->
+                        name = preset.name
+                        inventory = preset.inventory
+                        equipment = preset.equipment
+                        notes = preset.notes
+                    },
+                )
+            }
             Field(name, { name = it }, "Loadout name")
             Field(inventory, { inventory = it }, "Inventory")
             Field(equipment, { equipment = it }, "Equipment")
@@ -1250,6 +1441,93 @@ private fun RecordCard(title: String, detail: String, onDelete: () -> Unit) {
 }
 
 @Composable
+private fun EntryModeTabs(presetMode: Boolean, onChange: (Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = presetMode,
+            onClick = { onChange(true) },
+            label = { Text("Preset") },
+        )
+        FilterChip(
+            selected = !presetMode,
+            onClick = { onChange(false) },
+            label = { Text("Custom") },
+        )
+    }
+}
+
+@Composable
+private fun ChoiceChips(
+    title: String,
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    Text(title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        items(options) { option ->
+            FilterChip(
+                selected = option.equals(selected, ignoreCase = true),
+                onClick = { onSelect(option) },
+                label = { Text(option) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun <T> CatalogPicker(
+    title: String,
+    options: List<T>,
+    category: (T) -> String,
+    label: (T) -> String,
+    selectedLabel: String,
+    onSelect: (T) -> Unit,
+) {
+    val categories = options.map(category).distinct()
+    var selectedCategory by remember(options, selectedLabel) {
+        mutableStateOf(
+            options.firstOrNull { label(it).equals(selectedLabel, ignoreCase = true) }
+                ?.let(category)
+                ?: categories.firstOrNull().orEmpty(),
+        )
+    }
+    var search by remember { mutableStateOf("") }
+    Text(title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        items(categories) { option ->
+            FilterChip(
+                selected = option == selectedCategory,
+                onClick = {
+                    selectedCategory = option
+                    search = ""
+                },
+                label = { Text(option) },
+            )
+        }
+    }
+    Field(search, { search = it }, "Search $title")
+    val visible = options.filter { option ->
+        (search.isNotBlank() || category(option) == selectedCategory) &&
+            (search.isBlank() || label(option).contains(search, ignoreCase = true))
+    }
+    if (visible.isEmpty()) {
+        Text("No matching presets", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            items(visible) { option ->
+                val optionLabel = label(option)
+                FilterChip(
+                    selected = optionLabel.equals(selectedLabel, ignoreCase = true),
+                    onClick = { onSelect(option) },
+                    label = { Text(optionLabel) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun Field(
     value: String,
     onChange: (String) -> Unit,
@@ -1284,3 +1562,9 @@ private fun FeatureList(content: androidx.compose.foundation.lazy.LazyListScope.
 
 private fun number(value: Long?): String =
     value?.let(NumberFormat.getIntegerInstance()::format) ?: "—"
+
+private fun skillCategory(skill: String): String = when (skill) {
+    "Attack", "Defence", "Strength", "Hitpoints", "Ranged", "Prayer", "Magic" -> "Combat"
+    "Mining", "Fishing", "Woodcutting", "Hunter", "Farming" -> "Gathering"
+    else -> "Production & support"
+}

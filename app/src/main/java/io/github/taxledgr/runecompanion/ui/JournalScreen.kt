@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import io.github.taxledgr.runecompanion.features.CompanionCatalog
 import io.github.taxledgr.runecompanion.toolkit.ChecklistCategory
 import io.github.taxledgr.runecompanion.toolkit.ChecklistEntry
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
@@ -107,6 +108,9 @@ private fun SlayerCard(
 ) {
     var monster by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("150") }
+    val taskPresets = CompanionCatalog.slayerTaskNames
+    val categories = taskPresets.map(CompanionCatalog::slayerTaskCategory).distinct()
+    var category by remember { mutableStateOf(categories.first()) }
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -139,6 +143,35 @@ private fun SlayerCard(
                     }
                 }
             } ?: run {
+                Text("Choose a task", fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    categories.forEach { option ->
+                        FilterChip(
+                            selected = category == option,
+                            onClick = { category = option },
+                            label = { Text(option) },
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    taskPresets.filter {
+                        CompanionCatalog.slayerTaskCategory(it) == category
+                    }.forEach { preset ->
+                        FilterChip(
+                            selected = monster.equals(preset, ignoreCase = true),
+                            onClick = { monster = preset },
+                            label = { Text(preset) },
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = monster,
                     onValueChange = { monster = it },
@@ -165,7 +198,8 @@ private fun SlayerCard(
                 }
             }
             Text(
-                "Manual counter only; Rune Companion never reads or controls OSRS.",
+                "The task list is selectable, but the remaining-kill counter stays manual: " +
+                    "public hiscores do not expose the player's current Slayer assignment.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

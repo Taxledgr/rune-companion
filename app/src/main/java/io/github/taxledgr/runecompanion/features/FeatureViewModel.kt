@@ -31,6 +31,10 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     init {
         GeAlertScheduler.sync(application, _state.value.data.geAlerts.isNotEmpty())
         FeatureRefreshScheduler.sync(application, _state.value.data.accounts.any { it.autoRefresh })
+        if (_state.value.data.accounts.any { it.autoRefresh }) refreshAllAccounts()
+        if (_state.value.data.geAlerts.isNotEmpty() || _state.value.data.portfolio.isNotEmpty()) {
+            refreshPrices()
+        }
         viewModelScope.launch {
             while (isActive) {
                 delay(FOREGROUND_REFRESH_MILLIS)
@@ -296,12 +300,15 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         it.copy(sessions = it.sessions.filterNot { item -> item.id == id })
     }
 
-    fun addCollectionGoal(item: String, denominator: Int) {
+    fun addCollectionGoal(item: String, denominator: Int, sourceActivity: String? = null) {
         if (item.isBlank() || denominator <= 0) return
         updateData {
             it.copy(
                 collectionGoals = it.collectionGoals +
-                    CollectionGoal(id(), item.trim(), denominator, 0, false),
+                    CollectionGoal(
+                        id(), item.trim(), denominator, 0, false,
+                        sourceActivity?.trim()?.takeIf { value -> value.isNotBlank() },
+                    ),
             )
         }
     }
@@ -310,6 +317,12 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         it.copy(collectionGoals = it.collectionGoals.map { goal ->
             if (goal.id == id) goal.copy(attempts = (goal.attempts + amount).coerceAtLeast(0))
             else goal
+        })
+    }
+
+    fun setCollectionAttempts(id: String, attempts: Int) = updateData {
+        it.copy(collectionGoals = it.collectionGoals.map { goal ->
+            if (goal.id == id) goal.copy(attempts = attempts.coerceAtLeast(0)) else goal
         })
     }
 

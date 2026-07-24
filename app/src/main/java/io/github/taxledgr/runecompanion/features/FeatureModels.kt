@@ -88,6 +88,7 @@ data class CollectionGoal(
     val dropRateDenominator: Int,
     val attempts: Int,
     val obtained: Boolean,
+    val sourceActivity: String? = null,
 )
 
 data class Routine(
@@ -267,6 +268,19 @@ fun AccountProfile.xpGained(skill: String, sinceEpochMillis: Long): Long {
         ?: ordered.firstOrNull()?.summary?.skillOrEmpty(skill)?.xp
         ?: latestXp
     return max(0, latestXp - baselineXp)
+}
+
+fun AccountProfile.activityGained(activity: String, sinceEpochMillis: Long): Long {
+    val ordered = snapshots.sortedBy { it.capturedAtEpochMillis }
+    val latestScore = ordered.lastOrNull()?.summary?.activities
+        ?.firstOrNull { it.name.equals(activity, ignoreCase = true) }?.score ?: return 0
+    val baselineScore = ordered.lastOrNull { it.capturedAtEpochMillis <= sinceEpochMillis }
+        ?.summary?.activities
+        ?.firstOrNull { it.name.equals(activity, ignoreCase = true) }?.score
+        ?: ordered.firstOrNull()?.summary?.activities
+            ?.firstOrNull { it.name.equals(activity, ignoreCase = true) }?.score
+        ?: latestScore
+    return max(0, latestScore - baselineScore)
 }
 
 fun compactSnapshots(

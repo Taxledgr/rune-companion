@@ -33,4 +33,24 @@ class ToolkitModelsTest {
         assertEquals(125_000, latest.xpGainedSince(baseline, "Mining"))
         assertEquals(0, latest.xpGainedSince(baseline, "Agility"))
     }
+
+    @Test
+    fun `current official hiscore order parses sailing and named boss counters`() {
+        val lines = buildList {
+            HiscoreCatalog.skillNames.forEachIndexed { index, _ ->
+                add("1,${index + 1},${index * 1_000}")
+            }
+            HiscoreCatalog.activityNames.forEachIndexed { index, _ ->
+                add("${index + 10},${index + 100}")
+            }
+        }
+
+        val summary = parseHiscoreLines("Player", lines)
+
+        assertEquals(25, HiscoreCatalog.skillNames.size)
+        assertEquals(90, HiscoreCatalog.activityNames.size)
+        assertEquals(25, summary.skills.single { it.name == "Sailing" }.level)
+        assertEquals(185L, summary.activity("Vorkath")?.score)
+        assertEquals(189L, summary.activity("Zulrah")?.score)
+    }
 }

@@ -176,6 +176,15 @@ class ToolkitPreferences(context: Context) {
                 })
             }
         })
+        put("activities", JSONArray().apply {
+            activities.forEach { activity ->
+                put(JSONObject().apply {
+                    put("name", activity.name)
+                    put("rank", activity.rank)
+                    put("score", activity.score)
+                })
+            }
+        })
     }
 
     private fun JSONObject.toHiscoreSummary() = HiscoreSummary(
@@ -186,6 +195,13 @@ class ToolkitPreferences(context: Context) {
                 rank = item.getInt("rank"),
                 level = item.getInt("level"),
                 xp = item.getLong("xp"),
+            )
+        },
+        activities = optJSONArray("activities").mapObjects { item ->
+            ActivityScore(
+                name = item.getString("name"),
+                rank = item.getInt("rank"),
+                score = item.getLong("score"),
             )
         },
     )
@@ -211,6 +227,6 @@ class ToolkitPreferences(context: Context) {
         const val PREFERENCES_NAME = "rune_companion_toolkit"
         const val KEY_DATA = "toolkit_data"
         const val KEY_DATA_RECOVERY = "toolkit_data_recovery"
-        const val CURRENT_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
     }
 }
