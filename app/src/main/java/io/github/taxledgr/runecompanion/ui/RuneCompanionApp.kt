@@ -1,6 +1,10 @@
 package io.github.taxledgr.runecompanion.ui
 
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,12 +43,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
 import io.github.taxledgr.runecompanion.alerts.StarFilterSettings
 import io.github.taxledgr.runecompanion.data.ShootingStar
+import io.github.taxledgr.runecompanion.data.StarMapCatalog
+import io.github.taxledgr.runecompanion.data.StarMapPoint
 import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
@@ -417,6 +426,9 @@ private fun StarCard(
     val rankedRoutes = remember(guide, featureData) {
         guide?.let { StarTravelPlanner.rank(it, featureData) }.orEmpty()
     }
+    val mapPoint = remember(star.locationName) {
+        StarMapCatalog.pointFor(star.locationName)
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -426,6 +438,7 @@ private fun StarCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable { routeExpanded = !routeExpanded }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -478,6 +491,16 @@ private fun StarCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    Text(
+                        if (routeExpanded) {
+                            "Tap to hide directions and map"
+                        } else {
+                            "Tap for exact route, teleports and map"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = RuneGold,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     starTimingSummary(
                         calledAt = star.calledAt,
                         tier = star.tier,
@@ -492,13 +515,13 @@ private fun StarCard(
                     }
                 }
             }
-            rankedRoutes.firstOrNull()?.let { best ->
+            if (routeExpanded) rankedRoutes.firstOrNull()?.let { best ->
                 HorizontalDivider()
                 StarRouteSummary(
                     best = best,
                     allRoutes = rankedRoutes,
-                    expanded = routeExpanded,
-                    onExpandedChange = { routeExpanded = !routeExpanded },
+                    mapPoint = mapPoint,
+                    onCollapse = { routeExpanded = false },
                     onOpenRouteGuide = onOpenRouteGuide,
                 )
             }
@@ -510,8 +533,8 @@ private fun StarCard(
 private fun StarRouteSummary(
     best: RankedStarTravelRoute,
     allRoutes: List<RankedStarTravelRoute>,
-    expanded: Boolean,
-    onExpandedChange: () -> Unit,
+    mapPoint: StarMapPoint?,
+    onCollapse: () -> Unit,
     onOpenRouteGuide: () -> Unit,
 ) {
     Column(
@@ -529,42 +552,99 @@ private fun StarRouteSummary(
             best.route.steps,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = if (expanded) Int.MAX_VALUE else 2,
-            overflow = TextOverflow.Ellipsis,
         )
         RouteRequirements(best)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onExpandedChange) {
-                Text(
-                    if (expanded) "Hide routes" else "All ${allRoutes.size} routes & shortcuts",
-                )
-            }
-            if (expanded) {
-                TextButton(onClick = onOpenRouteGuide) {
-                    Text("Wiki maps")
-                }
-            }
-        }
-        if (expanded) {
-            allRoutes.drop(1).forEachIndexed { index, ranked ->
-                HorizontalDivider()
-                Text(
-                    "${index + 2}. ${ranked.route.method}",
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    ranked.route.steps,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                RouteRequirements(ranked)
-            }
+        mapPoint?.let { point ->
+            Spacer(Modifier.height(4.dp))
             Text(
-                "Availability uses the selected profile's public Agility/Magic levels " +
-                    "and More → Teleport route planner → My teleports.",
+                "EXACT LANDING SITE • ${point.region}",
                 style = MaterialTheme.typography.labelSmall,
+                color = RuneGold,
+                fontWeight = FontWeight.Bold,
+            )
+            StarMapPreview(point)
+        }
+        allRoutes.drop(1).forEachIndexed { index, ranked ->
+            HorizontalDivider()
+            Text(
+                "${index + 2}. ${ranked.route.method}",
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                ranked.route.steps,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            RouteRequirements(ranked)
+        }
+        Text(
+            "Availability uses the selected profile's public Agility/Magic levels " +
+                "and More → Teleport route planner → My teleports.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onCollapse) {
+                Text("Hide route & map")
+            }
+            TextButton(onClick = onOpenRouteGuide) {
+                Text("Wiki landing sites")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StarMapPreview(point: StarMapPoint) {
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(210.dp)
+            .clip(RoundedCornerShape(12.dp)),
+        factory = { context ->
+            WebView(context).apply {
+                setBackgroundColor(android.graphics.Color.rgb(7, 19, 28))
+                settings.javaScriptEnabled = false
+                settings.loadsImagesAutomatically = true
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                settings.safeBrowsingEnabled = true
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                webViewClient = WebViewClient()
+                tag = point.locationName
+                loadDataWithBaseURL(
+                    StarMapCatalog.MAP_BASE_URL,
+                    StarMapCatalog.previewHtml(point),
+                    "text/html",
+                    "UTF-8",
+                    null,
+                )
+                webView = this
+            }
+        },
+        update = { view ->
+            if (view.tag != point.locationName) {
+                view.tag = point.locationName
+                view.loadDataWithBaseURL(
+                    StarMapCatalog.MAP_BASE_URL,
+                    StarMapCatalog.previewHtml(point),
+                    "text/html",
+                    "UTF-8",
+                    null,
+                )
+            }
+        },
+    )
+    DisposableEffect(Unit) {
+        onDispose {
+            webView?.apply {
+                stopLoading()
+                webViewClient = WebViewClient()
+                destroy()
+            }
         }
     }
 }

@@ -16,8 +16,14 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -26,7 +32,13 @@ import io.github.taxledgr.runecompanion.R
 import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
 import io.github.taxledgr.runecompanion.alerts.StarFilterPreferences
 import io.github.taxledgr.runecompanion.data.ShootingStar
+import io.github.taxledgr.runecompanion.data.StarMapCatalog
+import io.github.taxledgr.runecompanion.data.StarMapPoint
 import io.github.taxledgr.runecompanion.data.StarRepository
+import io.github.taxledgr.runecompanion.features.FeaturePreferences
+import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
+import io.github.taxledgr.runecompanion.features.StarTravelCatalog
+import io.github.taxledgr.runecompanion.features.StarTravelPlanner
 import io.github.taxledgr.runecompanion.util.reportAge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,20 +50,27 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 class OverlayService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val alertNotifier by lazy { StarAlertNotifier(this) }
     private val filterPreferences by lazy { StarFilterPreferences(this) }
+    private val featurePreferences by lazy { FeaturePreferences(this) }
     private lateinit var windowManager: WindowManager
+    private lateinit var overlayParams: WindowManager.LayoutParams
     private var overlayView: View? = null
+    private var panelView: View? = null
+    private var bubbleView: TextView? = null
     private var starContainer: LinearLayout? = null
+    private var starScroll: ScrollView? = null
     private var statusText: TextView? = null
-    private var compactButton: TextView? = null
     private var refreshJob: Job? = null
     private var latestStars: List<ShootingStar> = emptyList()
-    private var compact = false
+    private var expandedStarId: String? = null
+    private var panelX = 0
+    private var panelY = 0
+    private val mapViews = mutableListOf<WebView>()
 
     override fun onCreate() {
         super.onCreate()
@@ -84,16 +103,20 @@ class OverlayService : Service() {
     override fun onDestroy() {
         refreshJob?.cancel()
         serviceScope.cancel()
+        destroyMapViews()
         overlayView?.let { view ->
             runCatching { windowManager.removeView(view) }
         }
         overlayView = null
+        panelView = null
+        bubbleView = null
         _running.value = false
         super.onDestroy()
     }
 
     private fun showOverlay() {
-        val root = LinearLayout(this).apply {
+        val root = FrameLayout(this)
+        val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
             background = panelBackground()
@@ -112,14 +135,14 @@ class OverlayService : Service() {
             title,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
-        compactButton = actionButton("▤") {
-            compact = !compact
-            compactButton?.text = if (compact) "▣" else "▤"
-            renderStars(latestStars)
-        }.also(header::addView)
-        header.addView(actionButton("↻") { refreshNow() })
-        header.addView(actionButton("×") { stopSelf() })
-        root.addView(header)
+        header.addView(
+            actionButton("−", "Minimise to floating bubble") {
+                minimiseToBubble()
+            },
+        )
+        header.addView(actionButton("↻", "Refresh star reports") { refreshNow() })
+        header.addView(actionButton("×", "Close floating star panel") { stopSelf() })
+        panel.addView(header)
 
         statusText = textView(
             getString(R.string.overlay_loading),
@@ -127,14 +150,53 @@ class OverlayService : Service() {
             Color.rgb(185, 201, 212),
         ).also {
             it.setPadding(0, dp(6), 0, dp(6))
-            root.addView(it)
+            panel.addView(it)
         }
         starContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-        }.also(root::addView)
+        }
+        starScroll = ScrollView(this).apply {
+            isFillViewport = false
+            isVerticalScrollBarEnabled = true
+            addView(
+                starContainer,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }.also {
+            panel.addView(
+                it,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
 
-        val params = WindowManager.LayoutParams(
-            dp(310),
+        val bubble = textView("✦", 22f, Color.rgb(244, 201, 93)).apply {
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            background = bubbleBackground()
+            elevation = dp(12).toFloat()
+            visibility = View.GONE
+            contentDescription = "Restore Shooting Stars panel"
+        }
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+        root.addView(
+            bubble,
+            FrameLayout.LayoutParams(dp(BUBBLE_SIZE_DP), dp(BUBBLE_SIZE_DP)),
+        )
+
+        overlayParams = WindowManager.LayoutParams(
+            dp(PANEL_WIDTH_DP),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -146,8 +208,16 @@ class OverlayService : Service() {
             y = dp(100)
         }
 
-        makeDraggable(title, params)
-        windowManager.addView(root, params)
+        panelView = panel
+        bubbleView = bubble
+        makeDraggable(title, overlayParams)
+        makeDraggable(
+            handle = bubble,
+            params = overlayParams,
+            onTap = ::restorePanel,
+            snapToEdge = true,
+        )
+        windowManager.addView(root, overlayParams)
         overlayView = root
     }
 
@@ -176,6 +246,7 @@ class OverlayService : Service() {
                     visibleStars.size,
                 )
                 latestStars = visibleStars
+                updateBubble(visibleStars.size)
                 renderStars(visibleStars)
                 alertNotifier.notifyForMatches(feed.stars)
             }
@@ -185,9 +256,11 @@ class OverlayService : Service() {
     }
 
     private fun renderStars(stars: List<ShootingStar>) {
-        val visibleStars = stars.take(
-            if (compact) COMPACT_OVERLAY_STARS else MAX_OVERLAY_STARS,
-        )
+        val visibleStars = stars.take(MAX_OVERLAY_STARS)
+        if (expandedStarId != null && visibleStars.none { it.overlayId() == expandedStarId }) {
+            expandedStarId = null
+        }
+        destroyMapViews()
         starContainer?.apply {
             removeAllViews()
             if (visibleStars.isEmpty()) {
@@ -202,27 +275,204 @@ class OverlayService : Service() {
                             dp(1),
                         ))
                     }
-                    addView(
-                        textView(
-                            "W${star.world}  T${star.tier}  ${star.locationName}\n" +
-                                "${reportAge(star.calledAt)} • ${star.calledBy}",
-                            13f,
-                            Color.WHITE,
-                        ).apply {
-                            setPadding(0, dp(8), 0, dp(8))
-                            maxLines = 3
-                        },
-                    )
+                    addView(starRow(star))
                 }
             }
         }
+        starScroll?.layoutParams = starScroll?.layoutParams?.apply {
+            height = if (expandedStarId == null) {
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            } else {
+                dp(EXPANDED_LIST_HEIGHT_DP)
+            }
+        }
+        starScroll?.requestLayout()
     }
 
-    private fun makeDraggable(handle: View, params: WindowManager.LayoutParams) {
+    private fun starRow(star: ShootingStar): View {
+        val id = star.overlayId()
+        val expanded = expandedStarId == id
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(4))
+            isClickable = true
+            isFocusable = true
+            contentDescription = if (expanded) {
+                "Hide route for world ${star.world} ${star.locationName}"
+            } else {
+                "Show route for world ${star.world} ${star.locationName}"
+            }
+            setOnClickListener {
+                expandedStarId = if (expanded) null else id
+                renderStars(latestStars)
+            }
+            addView(
+                textView(
+                    "W${star.world}  T${star.tier}  ${star.locationName}  " +
+                        if (expanded) "▴" else "›",
+                    13f,
+                    Color.WHITE,
+                ).apply {
+                    setTypeface(typeface, Typeface.BOLD)
+                    setPadding(0, dp(5), 0, dp(2))
+                    maxLines = 3
+                },
+            )
+            addView(
+                textView(
+                    "${reportAge(star.calledAt)} • ${star.calledBy}" +
+                        if (expanded) " • tap title to hide" else " • tap for route & map",
+                    11f,
+                    Color.rgb(185, 201, 212),
+                ).apply {
+                    setPadding(0, 0, 0, dp(5))
+                },
+            )
+            if (expanded) addExpandedRoute(star)
+        }
+    }
+
+    private fun LinearLayout.addExpandedRoute(star: ShootingStar) {
+        val guide = StarTravelCatalog.guideFor(star.locationName)
+        val rankedRoutes = guide?.let {
+            StarTravelPlanner.rank(it, featurePreferences.load())
+        }.orEmpty()
+        if (rankedRoutes.isEmpty()) {
+            addView(textView("No route guide is available for this report.", 12f, Color.LTGRAY))
+            return
+        }
+
+        rankedRoutes.forEachIndexed { index, ranked ->
+            if (index > 0) {
+                addView(View(this@OverlayService).apply {
+                    setBackgroundColor(Color.rgb(43, 64, 78))
+                }, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(1),
+                ))
+            }
+            val heading = when (index) {
+                0 -> if (ranked.available) {
+                    "FASTEST AVAILABLE • ${ranked.route.method}"
+                } else {
+                    "FASTEST KNOWN • ${ranked.route.method}"
+                }
+                else -> "${index + 1}. ${ranked.route.method}"
+            }
+            addView(
+                textView(
+                    heading,
+                    12f,
+                    if (ranked.available) {
+                        Color.rgb(89, 211, 199)
+                    } else {
+                        Color.rgb(244, 201, 93)
+                    },
+                ).apply {
+                    setTypeface(typeface, Typeface.BOLD)
+                    setPadding(0, dp(7), 0, dp(2))
+                },
+            )
+            addView(
+                textView(ranked.route.steps, 11f, Color.WHITE).apply {
+                    setPadding(0, 0, 0, dp(2))
+                },
+            )
+            routeRequirementText(ranked)?.let { detail ->
+                addView(
+                    textView(
+                        detail,
+                        10f,
+                        if (ranked.route.dangerous) {
+                            Color.rgb(255, 126, 126)
+                        } else {
+                            Color.rgb(185, 201, 212)
+                        },
+                    ).apply {
+                        setPadding(0, 0, 0, dp(5))
+                    },
+                )
+            }
+        }
+
+        StarMapCatalog.pointFor(star.locationName)?.let { point ->
+            addView(
+                textView(
+                    "EXACT LANDING SITE • ${point.region}",
+                    11f,
+                    Color.rgb(244, 201, 93),
+                ).apply {
+                    setTypeface(typeface, Typeface.BOLD)
+                    setPadding(0, dp(8), 0, dp(5))
+                },
+            )
+            addView(
+                mapPreview(point),
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(OVERLAY_MAP_HEIGHT_DP),
+                ),
+            )
+        }
+    }
+
+    private fun routeRequirementText(ranked: RankedStarTravelRoute): String? {
+        val details = buildList {
+            if (ranked.available) add("Configured for your selected profile")
+            addAll(ranked.missing)
+            ranked.route.agilityLevel?.let { add("$it Agility shortcut") }
+            addAll(ranked.route.requirements)
+            if (ranked.route.dangerous) add("WILDERNESS — risk items and check the world")
+        }
+        return details.takeIf { it.isNotEmpty() }?.joinToString(" • ")
+    }
+
+    private fun mapPreview(point: StarMapPoint) = WebView(this).apply {
+        setBackgroundColor(Color.rgb(7, 19, 28))
+        settings.javaScriptEnabled = false
+        settings.loadsImagesAutomatically = true
+        settings.allowFileAccess = false
+        settings.allowContentAccess = false
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        settings.safeBrowsingEnabled = true
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
+        webViewClient = WebViewClient()
+        loadDataWithBaseURL(
+            StarMapCatalog.MAP_BASE_URL,
+            StarMapCatalog.previewHtml(point),
+            "text/html",
+            "UTF-8",
+            null,
+        )
+        setOnTouchListener { _, _ -> true }
+        mapViews += this
+    }
+
+    private fun destroyMapViews() {
+        mapViews.forEach { view ->
+            view.stopLoading()
+            view.webViewClient = WebViewClient()
+            view.destroy()
+        }
+        mapViews.clear()
+    }
+
+    private fun ShootingStar.overlayId(): String = "$world|$locationName|$calledAt"
+
+    private fun makeDraggable(
+        handle: View,
+        params: WindowManager.LayoutParams,
+        onTap: (() -> Unit)? = null,
+        snapToEdge: Boolean = false,
+    ) {
         var initialX = 0
         var initialY = 0
         var touchX = 0f
         var touchY = 0f
+        var moved = false
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        handle.setOnClickListener { onTap?.invoke() }
         handle.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -230,22 +480,107 @@ class OverlayService : Service() {
                     initialY = params.y
                     touchX = event.rawX
                     touchY = event.rawY
+                    moved = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = initialX + (event.rawX - touchX).toInt()
-                    params.y = initialY + (event.rawY - touchY).toInt()
-                    overlayView?.let { windowManager.updateViewLayout(it, params) }
+                    val deltaX = event.rawX - touchX
+                    val deltaY = event.rawY - touchY
+                    if (!moved && (abs(deltaX) > touchSlop || abs(deltaY) > touchSlop)) {
+                        moved = true
+                    }
+                    if (moved) {
+                        params.x = initialX + deltaX.toInt()
+                        params.y = initialY + deltaY.toInt()
+                        clampOverlayPosition(params)
+                        overlayView?.let { windowManager.updateViewLayout(it, params) }
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    handle.performClick()
+                    if (moved) {
+                        if (snapToEdge) snapBubbleToEdge(params)
+                    } else {
+                        handle.performClick()
+                    }
                     true
                 }
                 else -> false
             }
         }
     }
+
+    private fun minimiseToBubble() {
+        val panel = panelView ?: return
+        val bubble = bubbleView ?: return
+        if (panel.visibility != View.VISIBLE) return
+        panelX = overlayParams.x
+        panelY = overlayParams.y
+        panel.visibility = View.GONE
+        bubble.visibility = View.VISIBLE
+        overlayParams.width = dp(BUBBLE_SIZE_DP)
+        overlayParams.height = dp(BUBBLE_SIZE_DP)
+        updateBubble(latestStars.size)
+        snapBubbleToEdge(overlayParams)
+    }
+
+    private fun restorePanel() {
+        val panel = panelView ?: return
+        val bubble = bubbleView ?: return
+        if (panel.visibility == View.VISIBLE) return
+        bubble.visibility = View.GONE
+        panel.visibility = View.VISIBLE
+        overlayParams.width = dp(PANEL_WIDTH_DP)
+        overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        overlayParams.x = panelX
+        overlayParams.y = panelY
+        clampOverlayPosition(overlayParams)
+        overlayView?.let { windowManager.updateViewLayout(it, overlayParams) }
+    }
+
+    private fun updateBubble(starCount: Int) {
+        bubbleView?.text = "✦\n$starCount"
+    }
+
+    private fun clampOverlayPosition(params: WindowManager.LayoutParams) {
+        val bounds = displayBounds()
+        val width = when {
+            params.width > 0 -> params.width
+            panelView?.visibility == View.VISIBLE -> dp(PANEL_WIDTH_DP)
+            else -> dp(BUBBLE_SIZE_DP)
+        }
+        params.x = params.x.coerceIn(0, (bounds.width() - width).coerceAtLeast(0))
+        params.y = params.y.coerceIn(
+            0,
+            (bounds.height() - dp(MINIMUM_VISIBLE_HEIGHT_DP)).coerceAtLeast(0),
+        )
+    }
+
+    private fun snapBubbleToEdge(params: WindowManager.LayoutParams) {
+        val bounds = displayBounds()
+        val inset = dp(BUBBLE_EDGE_INSET_DP)
+        val bubbleWidth = dp(BUBBLE_SIZE_DP)
+        params.x = if (params.x + bubbleWidth / 2 < bounds.width() / 2) {
+            inset
+        } else {
+            (bounds.width() - bubbleWidth - inset).coerceAtLeast(0)
+        }
+        clampOverlayPosition(params)
+        overlayView?.let { windowManager.updateViewLayout(it, params) }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun displayBounds(): android.graphics.Rect =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics.bounds
+        } else {
+            android.graphics.Rect(
+                0,
+                0,
+                resources.displayMetrics.widthPixels,
+                resources.displayMetrics.heightPixels,
+            )
+        }
 
     private fun panelBackground() = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
@@ -254,10 +589,21 @@ class OverlayService : Service() {
         setStroke(dp(1), Color.rgb(68, 91, 105))
     }
 
-    private fun actionButton(label: String, action: () -> Unit) =
+    private fun bubbleBackground() = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(Color.rgb(10, 25, 36))
+        setStroke(dp(2), Color.rgb(244, 201, 93))
+    }
+
+    private fun actionButton(
+        label: String,
+        description: String,
+        action: () -> Unit,
+    ) =
         textView(label, 22f, Color.WHITE).apply {
             gravity = Gravity.CENTER
             setPadding(dp(8), 0, dp(8), 0)
+            contentDescription = description
             setOnClickListener { action() }
         }
 
@@ -324,7 +670,12 @@ class OverlayService : Service() {
         private const val ACTION_STOP = "io.github.taxledgr.runecompanion.STOP_OVERLAY"
         private const val REFRESH_INTERVAL_MS = 60_000L
         private const val MAX_OVERLAY_STARS = 5
-        private const val COMPACT_OVERLAY_STARS = 2
+        private const val PANEL_WIDTH_DP = 310
+        private const val BUBBLE_SIZE_DP = 58
+        private const val BUBBLE_EDGE_INSET_DP = 8
+        private const val MINIMUM_VISIBLE_HEIGHT_DP = 72
+        private const val EXPANDED_LIST_HEIGHT_DP = 430
+        private const val OVERLAY_MAP_HEIGHT_DP = 180
 
         private val _running = MutableStateFlow(false)
         val running = _running.asStateFlow()
