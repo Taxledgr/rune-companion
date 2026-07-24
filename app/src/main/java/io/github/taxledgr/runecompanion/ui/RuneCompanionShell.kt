@@ -15,18 +15,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
+import io.github.taxledgr.runecompanion.features.FeatureState
+import io.github.taxledgr.runecompanion.features.FeatureViewModel
 
 private enum class CompanionTab(val label: String, val symbol: String) {
     STARS("Stars", "✦"),
     TIMERS("Timers", "◷"),
     JOURNAL("Journal", "✓"),
     TOOLS("Tools", "⌁"),
-    SETTINGS("Settings", "⚙"),
+    MORE("More", "☰"),
 }
 
 @Composable
 fun RuneCompanionShell(
     toolkitState: ToolkitState,
+    featureState: FeatureState,
+    featureViewModel: FeatureViewModel,
     notificationPermissionGranted: Boolean,
     onRequestNotificationPermission: () -> Unit,
     onAddReminder: (String, io.github.taxledgr.runecompanion.toolkit.ReminderCategory, Int) -> Unit,
@@ -105,13 +109,16 @@ fun RuneCompanionShell(
                     onLookupHiscores = onLookupHiscores,
                     onOpenUrl = onOpenUrl,
                 )
-                CompanionTab.SETTINGS -> SettingsScreen(
-                    state = toolkitState,
+                CompanionTab.MORE -> FeatureHubScreen(
+                    state = featureState,
+                    viewModel = featureViewModel,
+                    toolkitState = toolkitState,
                     onSaveTrackedPlayer = onSaveTrackedPlayer,
                     onAutoRefreshChanged = onTrackedPlayerAutoRefreshChanged,
                     onRefreshTrackedPlayer = onRefreshTrackedPlayer,
                     onResetTrackedPlayerBaseline = onResetTrackedPlayerBaseline,
                     onClearTrackedPlayer = onClearTrackedPlayer,
+                    onOpenUrl = onOpenUrl,
                 )
             }
         }

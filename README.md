@@ -5,7 +5,7 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 0.5
+## Version 1.0
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
 - Tier, members/F2P, official server-region, world, and location filters
@@ -25,6 +25,17 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - Saved player profile with automatic hiscore updates, local progress baseline, and per-skill XP gains
 - OSRS XP, cumulative drop-rate, and supply-cost calculators
 - Clue, fairy-ring, teleport, quest, diary, and boss reference links
+- Multiple public-hiscore profiles with timestamped daily and weekly XP history
+- Skill-goal and banked-XP planners
+- GE target notifications, portfolio cost basis, 1% tax, and net-profit tracking
+- Farming patch dashboard, Slayer knowledge cards, and boss/raid session logs
+- Collection dry-streak probabilities and Combat Achievement planning
+- Searchable clue helper and points-based minigame calculator
+- Player-specific teleport route planner covering spellbooks, tablets, jewellery,
+  special items, quest unlocks, house location, POH facilities, and Portal Nexus destinations
+- Manual DPS, consumable, daily/weekly routine, and shareable loadout tools
+- Android home-screen widget for the selected public-hiscore profile
+- Passphrase-protected AES-256-GCM backup and restore
 - No account login, ad SDK, analytics, or collection of personal information
 
 The persistent area and safe-world filters apply consistently to the main Stars list, floating overlay, and matching-star notifications.
@@ -68,11 +79,29 @@ Star depletion text is an estimate based on the reported tier and seven minutes 
 - Grand Exchange prices come from the [OSRS Wiki real-time prices API](https://prices.runescape.wiki/).
 - Player levels, ranks, and XP come from the [official OSRS hiscores](https://secure.runescape.com/m=hiscore_oldschool/overall).
 
-All timers, journal entries, loadouts, goals, and watchlists are stored locally on the phone.
+All timers, journal entries, loadouts, goals, teleport selections, and watchlists are stored locally on the phone.
+
+## Teleport planner
+
+Open **More → Teleport route planner → My teleports** and select what that player
+can actually use:
+
+- available spellbooks and quest/diary unlocks;
+- teleport tablets currently carried or banked;
+- teleport jewellery and special teleport items;
+- player-owned house access and house portal location;
+- mounted jewellery, fairy ring, spirit tree, obelisk, and other POH facilities; and
+- each configured portal chamber or Portal Nexus destination.
+
+The selected account's public hiscores provide its Magic level. Jagex's hiscores
+do not expose inventory, bank, active spellbook, quests, diaries, item charges, or
+POH configuration, so those capabilities cannot be detected automatically without
+inspecting the game client. Rune Companion intentionally requires the player to
+configure them and never uses screen capture, OCR, Accessibility Services, or client hooks.
 
 ## Automatic player stats
 
-Enter an OSRS display name under **Settings → Tracked player**. Rune Companion immediately loads public skill levels, ranks, and XP, then:
+Enter an OSRS display name under **More → App settings → Tracked player**. Rune Companion immediately loads public skill levels, ranks, and XP, then:
 
 - refreshes at most every 10 minutes while the app is open;
 - asks Android WorkManager to refresh every 15 minutes when the app is closed;
@@ -80,6 +109,11 @@ Enter an OSRS display name under **Settings → Tracked player**. Rune Companion
 - shows total and per-skill XP gained since the baseline.
 
 Android may delay background work because of battery optimisation or network conditions, and the official hiscores can lag behind recent in-game XP. No Jagex login, password, or game-client access is used.
+
+For several characters, use **More → Multi-account profiles**. These profiles
+refresh every 10 minutes while Rune Companion is open (and through Android's
+15-minute background scheduler), retaining recent snapshots plus compact hourly
+history for the daily and weekly XP view.
 
 ## Build
 

@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.taxledgr.runecompanion.overlay.OverlayService
+import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.ui.RuneCompanionApp
 import io.github.taxledgr.runecompanion.ui.RuneCompanionShell
 import io.github.taxledgr.runecompanion.ui.StarViewModel
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
     private val overlayPermission = MutableStateFlow(false)
     private val notificationPermission = MutableStateFlow(false)
     private val toolkitViewModel: ToolkitViewModel by viewModels()
+    private val featureViewModel: FeatureViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +41,7 @@ class MainActivity : ComponentActivity() {
                 val starFilterSettings =
                     starViewModel.filterSettings.collectAsStateWithLifecycle()
                 val toolkitState = toolkitViewModel.state.collectAsStateWithLifecycle()
+                val featureState = featureViewModel.state.collectAsStateWithLifecycle()
                 val permission = overlayPermission.collectAsStateWithLifecycle()
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
@@ -61,6 +64,8 @@ class MainActivity : ComponentActivity() {
 
                 RuneCompanionShell(
                     toolkitState = toolkitState.value,
+                    featureState = featureState.value,
+                    featureViewModel = featureViewModel,
                     notificationPermissionGranted = notificationsGranted.value,
                     onRequestNotificationPermission = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -163,6 +168,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         toolkitViewModel.setAppInForeground(true)
+        featureViewModel.reloadFromDisk()
     }
 
     override fun onStop() {

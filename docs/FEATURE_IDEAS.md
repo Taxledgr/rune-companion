@@ -1,6 +1,9 @@
-# Rune Companion feature ideas
+# Rune Companion v1.0 feature suite
 
-These features preserve Rune Companion's passive design: public web data, local calculations, and information the player deliberately enters. They do not require OCR, Accessibility Service control, or reading the OSRS client.
+These features are implemented in the **More** tab. They preserve Rune Companion's
+passive design: public web data, local calculations, and information the player
+deliberately enters. They do not require OCR, Accessibility Service control, or
+reading the OSRS client.
 
 1. **Multi-account stat profiles** — save several display names and switch between progress dashboards.
 2. **Daily and weekly XP charts** — keep timestamped public-hiscore snapshots and show skill gains over time.
@@ -23,4 +26,8 @@ These features preserve Rune Companion's passive design: public web data, local 
 19. **Import/export and encrypted backup** — user-controlled JSON backup for timers, journals, profiles, and settings.
 20. **Shareable loadout templates** — grouped gear/inventory quantities with notes and a compact image or text export.
 
-The official 2026 mobile survey highlights demand for quest help, native notifications, clue help, and better bank tools. RuneLite's popular plugins similarly point to quest assistance, tile packs, banked XP, bank layouts, and activity helpers. Rune Companion should implement companion-safe versions that remain outside the live game client.
+The teleport planner infers only Magic level from public hiscores. Spellbook state,
+quest and diary unlocks, tablets, jewellery, special items, charges, and POH
+configuration are selected by the player and stored locally. This is deliberate:
+the app cannot discover those values from public data, and it does not inspect the
+OSRS mobile client.
