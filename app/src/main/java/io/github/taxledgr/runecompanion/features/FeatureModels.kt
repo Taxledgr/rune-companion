@@ -198,6 +198,9 @@ data class FeatureState(
 fun AccountProfile.magicLevel(): Int =
     latest?.summary?.skills?.firstOrNull { it.name == "Magic" }?.level ?: 1
 
+fun AccountProfile.agilityLevel(): Int =
+    latest?.summary?.skills?.firstOrNull { it.name == "Agility" }?.level ?: 1
+
 fun SkillGoal.remainingXp(profile: AccountProfile?): Long {
     val currentXp = profile?.latest?.summary?.skills
         ?.firstOrNull { it.name == skill }?.xp?.coerceAtLeast(0) ?: 0

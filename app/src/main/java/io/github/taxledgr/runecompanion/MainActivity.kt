@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
                     starsContent = {
                         RuneCompanionApp(
                             state = state.value,
+                            featureData = featureState.value.data,
                             alertSettings = alertSettings.value,
                             filterSettings = starFilterSettings.value,
                             overlayPermissionGranted = permission.value,
@@ -152,6 +153,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onOpenStarMiners = ::openStarMiners,
+                            onOpenUrl = ::openUrl,
                         )
                     },
                 )

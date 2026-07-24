@@ -5,9 +5,13 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 1.0
+## Version 1.1
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
+- Expandable fastest-route guidance on every one of the 82 star cards, ranked
+  against the selected player's configured teleports and public Agility/Magic levels
+- Alternative teleports, walking directions, shortcut requirements, route maps,
+  and prominent Wilderness warnings on each star card
 - Tier, members/F2P, official server-region, world, and location filters
 - Tick/untick checklist covering all 82 Star Miners landing sites in 15 areas
 - Safe-world mode that removes PvP, Bounty Hunter, High Risk, Wilderness PK, Deadman, and similarly labelled worlds
@@ -39,6 +43,24 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - No account login, ad SDK, analytics, or collection of personal information
 
 The persistent area and safe-world filters apply consistently to the main Stars list, floating overlay, and matching-star notifications.
+
+## Shooting Star routes
+
+Every live star card includes a route summary. Tap **All routes & shortcuts** to see:
+
+- the fastest route enabled by **More → Teleport route planner → My teleports**;
+- every other known teleport route for that landing site;
+- the walk from the teleport destination to the crashed star;
+- Agility shortcut levels taken from the selected account's public hiscores;
+- quest, diary, equipment, coin, and transport requirements that still need a
+  manual check; and
+- a prominent warning on every Wilderness route.
+
+The 82-site route keys match the Star Miners feed. Route ordering is based on the
+current [OSRS Wiki Shooting Stars landing-site tables](https://oldschool.runescape.wiki/w/Shooting_Stars#Landing_sites).
+The app does not read the player's live position, inventory, run energy, or game
+state, so “fastest available” means the highest-ranked route whose teleport and
+public skill requirements match the profile configured in Rune Companion.
 
 ## Safety boundary
 

@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,6 +44,10 @@ import androidx.compose.ui.unit.dp
 import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
 import io.github.taxledgr.runecompanion.alerts.StarFilterSettings
 import io.github.taxledgr.runecompanion.data.ShootingStar
+import io.github.taxledgr.runecompanion.features.FeatureData
+import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
+import io.github.taxledgr.runecompanion.features.StarTravelCatalog
+import io.github.taxledgr.runecompanion.features.StarTravelPlanner
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
 import io.github.taxledgr.runecompanion.ui.theme.RuneSurfaceRaised
@@ -58,6 +63,7 @@ private enum class WorldAccessFilter(val label: String) {
 @Composable
 fun RuneCompanionApp(
     state: StarUiState,
+    featureData: FeatureData,
     alertSettings: StarAlertSettings,
     filterSettings: StarFilterSettings,
     overlayPermissionGranted: Boolean,
@@ -78,6 +84,7 @@ fun RuneCompanionApp(
     onGrantOverlayPermission: () -> Unit,
     onToggleOverlay: () -> Unit,
     onOpenStarMiners: () -> Unit,
+    onOpenUrl: (String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     var selectedTier by remember { mutableIntStateOf(0) }
@@ -220,7 +227,16 @@ fun RuneCompanionApp(
                 items = filteredStars,
                 key = { "${it.world}-${it.locationId}-${it.calledAt}" },
             ) { star ->
-                StarCard(star, state.worlds[star.world])
+                StarCard(
+                    star = star,
+                    worldInfo = state.worlds[star.world],
+                    featureData = featureData,
+                    onOpenRouteGuide = {
+                        onOpenUrl(
+                            "https://oldschool.runescape.wiki/w/Shooting_Stars#Landing_sites",
+                        )
+                    },
+                )
             }
             item {
                 Attribution(onOpenStarMiners)
@@ -391,81 +407,189 @@ private fun TierFilters(selectedTier: Int, onTierSelected: (Int) -> Unit) {
 private fun StarCard(
     star: ShootingStar,
     worldInfo: io.github.taxledgr.runecompanion.data.WorldInfo?,
+    featureData: FeatureData,
+    onOpenRouteGuide: () -> Unit,
 ) {
+    var routeExpanded by remember { mutableStateOf(false) }
+    val guide = remember(star.locationName) {
+        StarTravelCatalog.guideFor(star.locationName)
+    }
+    val rankedRoutes = remember(guide, featureData) {
+        guide?.let { StarTravelPlanner.rank(it, featureData) }.orEmpty()
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(16.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
+        Column {
+            Row(
                 modifier = Modifier
-                    .size(52.dp)
-                    .background(RuneGold.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text(
-                    text = "T${star.tier}",
-                    color = RuneGold,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "World ${star.world}",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = star.locationName,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                worldInfo?.let { world ->
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(RuneGold.copy(alpha = 0.14f), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(
-                        "${if (world.members) "Members" else "F2P"} • ${world.region}",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "T${star.tier}",
+                        color = RuneGold,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "World ${star.world}",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = star.locationName,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (world.dangerous) {
+                    worldInfo?.let { world ->
                         Text(
-                            "Dangerous world • ${world.activity}",
+                            "${if (world.members) "Members" else "F2P"} • ${world.region}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (world.dangerous) {
+                            Text(
+                                "Dangerous world • ${world.activity}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = "${reportAge(star.calledAt)} • ${star.calledBy}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = RuneCyan,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    starTimingSummary(
+                        calledAt = star.calledAt,
+                        tier = star.tier,
+                        minimumArrival = star.minimumArrival,
+                        maximumArrival = star.maximumArrival,
+                    )?.let { timing ->
+                        Text(
+                            timing,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = RuneGold,
                         )
                     }
                 }
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    text = "${reportAge(star.calledAt)} • ${star.calledBy}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = RuneCyan,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            }
+            rankedRoutes.firstOrNull()?.let { best ->
+                HorizontalDivider()
+                StarRouteSummary(
+                    best = best,
+                    allRoutes = rankedRoutes,
+                    expanded = routeExpanded,
+                    onExpandedChange = { routeExpanded = !routeExpanded },
+                    onOpenRouteGuide = onOpenRouteGuide,
                 )
-                starTimingSummary(
-                    calledAt = star.calledAt,
-                    tier = star.tier,
-                    minimumArrival = star.minimumArrival,
-                    maximumArrival = star.maximumArrival,
-                )?.let { timing ->
-                    Text(
-                        timing,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = RuneGold,
-                    )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StarRouteSummary(
+    best: RankedStarTravelRoute,
+    allRoutes: List<RankedStarTravelRoute>,
+    expanded: Boolean,
+    onExpandedChange: () -> Unit,
+    onOpenRouteGuide: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            if (best.available) "FASTEST AVAILABLE FOR YOU" else "FASTEST KNOWN ROUTE",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (best.available) RuneCyan else RuneGold,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(best.route.method, fontWeight = FontWeight.Bold)
+        Text(
+            best.route.steps,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        RouteRequirements(best)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onExpandedChange) {
+                Text(
+                    if (expanded) "Hide routes" else "All ${allRoutes.size} routes & shortcuts",
+                )
+            }
+            if (expanded) {
+                TextButton(onClick = onOpenRouteGuide) {
+                    Text("Wiki maps")
                 }
             }
         }
+        if (expanded) {
+            allRoutes.drop(1).forEachIndexed { index, ranked ->
+                HorizontalDivider()
+                Text(
+                    "${index + 2}. ${ranked.route.method}",
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    ranked.route.steps,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                RouteRequirements(ranked)
+            }
+            Text(
+                "Availability uses the selected profile's public Agility/Magic levels " +
+                    "and More → Teleport route planner → My teleports.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RouteRequirements(ranked: RankedStarTravelRoute) {
+    val details = buildList {
+        if (ranked.available) add("Configured")
+        addAll(ranked.missing)
+        ranked.route.agilityLevel?.let { add("$it Agility shortcut") }
+        addAll(ranked.route.requirements)
+        if (ranked.route.dangerous) add("WILDERNESS — risk items and check the world")
+    }
+    if (details.isNotEmpty()) {
+        Text(
+            details.joinToString(" • "),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (ranked.route.dangerous) {
+                MaterialTheme.colorScheme.error
+            } else if (ranked.available) {
+                RuneCyan
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
 

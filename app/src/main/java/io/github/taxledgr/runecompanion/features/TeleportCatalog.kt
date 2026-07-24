@@ -125,6 +125,28 @@ object TeleportCatalog {
         group("item_ghommals", "Ghommal's hilt / avernic defender", "God Wars Dungeon / Mor Ul Rek", "Multiple"),
         group("item_fairy_ring", "Fairy ring access", "Fairy ring network", "Multiple"),
         group("item_spirit_tree", "Spirit tree access", "Spirit tree network", "Multiple"),
+        group("item_ardougne_cloak", "Ardougne cloak", "Ardougne Monastery / farm", "Kandarin"),
+        group("item_western_banner", "Western banner 3/4", "Piscatoris", "Kandarin"),
+        group("item_kharedst", "Kharedst's memoirs / Book of the dead", "Five Kourend memoir destinations", "Kourend"),
+        group("item_hallowed", "Hallowed crystal shard", "Darkmeyer", "Morytania"),
+        group("item_calcified", "Calcified moth", "Cam Torum", "Varlamore"),
+        group("item_magic_whistle", "Magic whistle", "Fisher King's Realm", "Kandarin"),
+        group("item_volcanic", "Volcanic Mine teleport", "Volcanic Mine", "Fossil Island"),
+    )
+
+    val travelNetworks = listOf(
+        group("travel_charter", "Charter ships", "Charter port network", "Multiple"),
+        group("travel_balloon", "Balloon transport system", "Balloon network", "Multiple"),
+        group("travel_glider", "Gnome glider network", "Gnome glider destinations", "Multiple"),
+        group("travel_minecart", "Lovakengj minecart network", "Kourend minecart destinations", "Kourend"),
+        group("travel_shilo_cart", "Shilo Village cart", "Brimhaven ↔ Shilo Village", "Karamja"),
+        group("travel_mycelium", "Mycelium transport system", "Fossil Island mushroom network", "Fossil Island"),
+        group("travel_quetzal", "Quetzal transport system", "Varlamore quetzal network", "Varlamore"),
+        group("travel_abyss", "Abyss access", "Runecrafting altar network", "Multiple"),
+        group("travel_lever", "Deserted Keep lever route", "Ardougne / Edgeville lever to deep Wilderness", "Wilderness", true),
+        group("travel_carpet", "Magic carpet network", "Kharidian Desert carpet routes", "Desert"),
+        group("travel_fairy", "Fairy ring network", "Fairy ring destinations", "Multiple"),
+        group("travel_spirit", "Spirit tree network", "Spirit tree destinations", "Multiple"),
     )
 
     val teleportScrolls = listOf(
@@ -189,7 +211,7 @@ object TeleportCatalog {
         )
 
     val all: List<TeleportOption> =
-        spellbooks + tablets + jewellery + specialItems + teleportScrolls +
+        spellbooks + tablets + jewellery + specialItems + travelNetworks + teleportScrolls +
             pohFacilities + nexusDestinations
 
     val capabilityGroups: List<Pair<String, List<TeleportOption>>> = listOf(
@@ -197,6 +219,7 @@ object TeleportCatalog {
         "Teleport tablets" to tablets,
         "Jewellery" to jewellery,
         "Special items & capes" to specialItems,
+        "Travel networks" to travelNetworks,
         "Teleport scrolls" to teleportScrolls,
         "POH facilities" to pohFacilities,
     )
