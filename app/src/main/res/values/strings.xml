@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Rune Companion</string>
+    <string name="overlay_channel_name">Rune Companion overlay</string>
+    <string name="overlay_notification_title">Rune Companion overlay is active</string>
+    <string name="overlay_notification_text">Showing OSRS Shooting Stars reports</string>
+    <string name="overlay_loading">Loading Star Miners…</string>
+    <string name="overlay_updating">Updating Star Miners…</string>
+    <plurals name="overlay_live_reports">
+        <item quantity="one">%1$d live report • drag title to move</item>
+        <item quantity="other">%1$d live reports • drag title to move</item>
+    </plurals>
+    <string name="stop">Stop</string>
+</resources>
