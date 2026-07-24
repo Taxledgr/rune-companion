@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
                 val starViewModel: StarViewModel = viewModel()
                 val state = starViewModel.state.collectAsStateWithLifecycle()
                 val alertSettings = starViewModel.alertSettings.collectAsStateWithLifecycle()
+                val starFilterSettings =
+                    starViewModel.filterSettings.collectAsStateWithLifecycle()
                 val toolkitState = toolkitViewModel.state.collectAsStateWithLifecycle()
                 val permission = overlayPermission.collectAsStateWithLifecycle()
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
@@ -97,10 +99,16 @@ class MainActivity : ComponentActivity() {
                         RuneCompanionApp(
                             state = state.value,
                             alertSettings = alertSettings.value,
+                            filterSettings = starFilterSettings.value,
                             overlayPermissionGranted = permission.value,
                             overlayRunning = overlayRunning.value,
                             onRefresh = starViewModel::refresh,
                             onAlertWorldsChanged = starViewModel::setAlertWorlds,
+                            onHideDangerousWorldsChanged =
+                                starViewModel::setHideDangerousWorlds,
+                            onLocationSelected = starViewModel::setLocationSelected,
+                            onLocationsSelected = starViewModel::setLocationsSelected,
+                            onAllLocationsSelected = starViewModel::setAllLocationsSelected,
                             onAlertLocationsChanged = starViewModel::setAlertLocations,
                             onAlertTierToggled = starViewModel::toggleAlertTier,
                             onClearAlertTiers = starViewModel::clearAlertTiers,

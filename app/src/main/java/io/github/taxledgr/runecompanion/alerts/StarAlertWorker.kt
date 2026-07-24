@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import io.github.taxledgr.runecompanion.data.StarRepository
+import io.github.taxledgr.runecompanion.data.WorldDirectoryClient
 
 class StarAlertWorker(
     appContext: Context,
@@ -15,6 +16,10 @@ class StarAlertWorker(
         }
 
         return runCatching {
+            runCatching { WorldDirectoryClient().fetch() }
+                .onSuccess { worlds ->
+                    StarFilterPreferences(applicationContext).updateWorldSafety(worlds)
+                }
             val feed = StarRepository.latest()
             StarAlertNotifier(applicationContext).notifyForMatches(feed.stars)
         }.fold(

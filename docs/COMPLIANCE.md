@@ -18,7 +18,7 @@ The app fetches public Shooting Stars reports over HTTPS and displays them in it
 
 Saved alert filters, reminders, journal entries, loadouts, goals, stopwatches, watchlists, and hiscore snapshots remain on the device. Price and hiscore lookups contain only the item query or player name the user deliberately enters. Version 0.4 does not request screen-capture or Accessibility Service permission and contains no OCR implementation.
 
-The app also reads Jagex's public world list and hiscores, the OSRS Wiki public prices API, and opens reference pages in the user's browser. It never signs into a Jagex account or submits input to the OSRS client.
+The app also reads Jagex's public world list and hiscores, the OSRS Wiki public prices API, and opens reference pages in the user's browser. Jagex's current world activity labels are used to identify PvP, Bounty Hunter, High Risk, Wilderness PK, Deadman, and similarly dangerous worlds. It never signs into a Jagex account or submits input to the OSRS client.
 
 ## References
 

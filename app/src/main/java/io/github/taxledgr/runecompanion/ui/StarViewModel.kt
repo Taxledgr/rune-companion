@@ -7,9 +7,12 @@ import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
 import io.github.taxledgr.runecompanion.alerts.StarAlertPreferences
 import io.github.taxledgr.runecompanion.alerts.StarAlertScheduler
 import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
+import io.github.taxledgr.runecompanion.alerts.StarFilterPreferences
+import io.github.taxledgr.runecompanion.alerts.StarFilterSettings
 import io.github.taxledgr.runecompanion.alerts.parseLocations
 import io.github.taxledgr.runecompanion.alerts.parseWorlds
 import io.github.taxledgr.runecompanion.data.ShootingStar
+import io.github.taxledgr.runecompanion.data.StarLocationCatalog
 import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.data.WorldDirectoryClient
 import io.github.taxledgr.runecompanion.data.WorldInfo
@@ -33,11 +36,14 @@ data class StarUiState(
 class StarViewModel(application: Application) : AndroidViewModel(application) {
     private val alertPreferences = StarAlertPreferences(application)
     private val alertNotifier = StarAlertNotifier(application)
+    private val filterPreferences = StarFilterPreferences(application)
     private val worldDirectoryClient = WorldDirectoryClient()
     private val _state = MutableStateFlow(StarUiState(isLoading = true))
     val state: StateFlow<StarUiState> = _state.asStateFlow()
     private val _alertSettings = MutableStateFlow(alertPreferences.load())
     val alertSettings: StateFlow<StarAlertSettings> = _alertSettings.asStateFlow()
+    private val _filterSettings = MutableStateFlow(filterPreferences.load())
+    val filterSettings: StateFlow<StarFilterSettings> = _filterSettings.asStateFlow()
 
     init {
         StarAlertScheduler.sync(
@@ -56,6 +62,7 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
                     _state.update { state ->
                         state.copy(worlds = worlds.associateBy(WorldInfo::world))
                     }
+                    _filterSettings.value = filterPreferences.updateWorldSafety(worlds)
                 }
         }
     }
@@ -87,6 +94,44 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
     fun setAlertWorlds(input: String) {
         updateAlertSettings(
             _alertSettings.value.copy(worlds = parseWorlds(input)),
+        )
+    }
+
+    fun setHideDangerousWorlds(hide: Boolean) {
+        updateFilterSettings(_filterSettings.value.copy(hideDangerousWorlds = hide))
+    }
+
+    fun setLocationSelected(location: String, selected: Boolean) {
+        if (location !in StarLocationCatalog.allNames) return
+        val current = _filterSettings.value
+        val excluded = if (selected) {
+            current.excludedLocations - location
+        } else {
+            current.excludedLocations + location
+        }
+        updateFilterSettings(current.copy(excludedLocations = excluded))
+    }
+
+    fun setLocationsSelected(locations: Collection<String>, selected: Boolean) {
+        val validLocations = locations.filter { it in StarLocationCatalog.allNames }.toSet()
+        val current = _filterSettings.value
+        val excluded = if (selected) {
+            current.excludedLocations - validLocations
+        } else {
+            current.excludedLocations + validLocations
+        }
+        updateFilterSettings(current.copy(excludedLocations = excluded))
+    }
+
+    fun setAllLocationsSelected(selected: Boolean) {
+        updateFilterSettings(
+            _filterSettings.value.copy(
+                excludedLocations = if (selected) {
+                    emptySet()
+                } else {
+                    StarLocationCatalog.allNames.toSet()
+                },
+            ),
         )
     }
 
@@ -139,6 +184,12 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
             enabled = settings.enabled,
             runImmediately = settings.enabled,
         )
+    }
+
+    private fun updateFilterSettings(settings: StarFilterSettings) {
+        if (settings == _filterSettings.value) return
+        filterPreferences.save(settings)
+        _filterSettings.value = settings
     }
 
     private companion object {

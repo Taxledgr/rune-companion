@@ -10,7 +10,16 @@ data class WorldInfo(
     val world: Int,
     val members: Boolean,
     val region: String,
-)
+    val activity: String,
+) {
+    val dangerous: Boolean
+        get() = isDangerousWorldActivity(activity)
+}
+
+fun isDangerousWorldActivity(activity: String): Boolean {
+    val normalized = activity.lowercase()
+    return DANGEROUS_WORLD_LABELS.any(normalized::contains)
+}
 
 class WorldDirectoryClient {
     suspend fun fetch(): List<WorldInfo> = withContext(Dispatchers.IO) {
@@ -21,7 +30,7 @@ class WorldDirectoryClient {
             connection.readTimeout = 12_000
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/0.4 (github.com/Taxledgr/rune-companion)",
+                "Rune Companion/0.5 (github.com/Taxledgr/rune-companion)",
             )
             if (connection.responseCode !in 200..299) {
                 throw IOException("Official world list returned HTTP ${connection.responseCode}")
@@ -37,6 +46,11 @@ class WorldDirectoryClient {
             val world = match.groups["world"]?.value?.toIntOrNull() ?: return@mapNotNull null
             val type = match.groups["type"]?.value ?: return@mapNotNull null
             val country = match.groups["country"]?.value.orEmpty()
+            val activity = match.groups["activity"]?.value
+                .orEmpty()
+                .replace(Regex("<[^>]+>"), "")
+                .replace("&amp;", "&")
+                .trim()
             WorldInfo(
                 world = world,
                 members = type == "Members",
@@ -49,14 +63,25 @@ class WorldDirectoryClient {
                     "BR" -> "Brazil"
                     else -> "Other"
                 },
+                activity = activity,
             )
         }.distinctBy(WorldInfo::world).toList()
 
     private companion object {
         const val ENDPOINT = "https://oldschool.runescape.com/slu?order=wlmAp"
         val ROW_REGEX = Regex(
-            """<tr class='server-list__row[^']*'>.*?id='slu-world-(?<world>\d+)'.*?server-list__row-cell--country\s+server-list__row-cell--(?<country>[A-Z]+)'.*?server-list__row-cell--type'>(?<type>Members|Free)</td>""",
+            """<tr class='server-list__row[^']*'>.*?id='slu-world-(?<world>\d+)'.*?server-list__row-cell--country\s+server-list__row-cell--(?<country>[A-Z]+)'.*?server-list__row-cell--type'>(?<type>Members|Free)</td>\s*<td class='server-list__row-cell'>(?<activity>.*?)</td>""",
             setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
         )
     }
 }
+
+private val DANGEROUS_WORLD_LABELS = listOf(
+    "pvp",
+    "bounty hunter",
+    "high risk",
+    "wilderness pk",
+    "deadman",
+    "targeting",
+    "dmm",
+)

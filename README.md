@@ -5,10 +5,12 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 0.4
+## Version 0.5
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
 - Tier, members/F2P, official server-region, world, and location filters
+- Tick/untick checklist covering all 82 Star Miners landing sites in 15 areas
+- Safe-world mode that removes PvP, Bounty Hunter, High Risk, Wilderness PK, Deadman, and similarly labelled worlds
 - Saved world, tier, and favourite-location alerts with quiet hours
 - Configurable alert sounds through Android notification settings
 - Reliable background checks through Android WorkManager
@@ -24,6 +26,8 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - OSRS XP, cumulative drop-rate, and supply-cost calculators
 - Clue, fairy-ring, teleport, quest, diary, and boss reference links
 - No account login, ad SDK, analytics, or collection of personal information
+
+The persistent area and safe-world filters apply consistently to the main Stars list, floating overlay, and matching-star notifications.
 
 ## Safety boundary
 

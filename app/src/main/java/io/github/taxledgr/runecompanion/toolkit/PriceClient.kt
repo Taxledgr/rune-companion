@@ -70,7 +70,7 @@ class PriceClient {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/0.4 (github.com/Taxledgr/rune-companion)",
+                "Rune Companion/0.5 (github.com/Taxledgr/rune-companion)",
             )
             if (connection.responseCode !in 200..299) {
                 throw IOException("OSRS Wiki prices returned HTTP ${connection.responseCode}")

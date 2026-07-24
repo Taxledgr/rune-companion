@@ -2,11 +2,12 @@
 
 This roadmap favours passive reference tools, public data, and information the player enters deliberately. Features that would inspect or interact with the live OSRS client require a fresh Jagex rules review before development.
 
-## Delivered in versions 0.3–0.4
+## Delivered in versions 0.3–0.5
 
 - Favourite landing-location, world, and tier alerts
 - Arrival and estimated depletion windows
 - Members/free-to-play and official server-region filters
+- Full 82-site area checklist and persistent dangerous-world exclusion
 - Notification quiet hours and Android notification-sound controls
 - Full and compact draggable overlay modes
 - Farming, birdhouse, daily, and custom reminders

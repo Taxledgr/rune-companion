@@ -24,6 +24,7 @@ import androidx.core.app.ServiceCompat
 import io.github.taxledgr.runecompanion.MainActivity
 import io.github.taxledgr.runecompanion.R
 import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
+import io.github.taxledgr.runecompanion.alerts.StarFilterPreferences
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.util.reportAge
@@ -42,6 +43,7 @@ import kotlinx.coroutines.withContext
 class OverlayService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val alertNotifier by lazy { StarAlertNotifier(this) }
+    private val filterPreferences by lazy { StarFilterPreferences(this) }
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var starContainer: LinearLayout? = null
@@ -167,13 +169,14 @@ class OverlayService : Service() {
         statusText?.setText(R.string.overlay_updating)
         runCatching { StarRepository.latest() }
             .onSuccess { feed ->
+                val visibleStars = feed.stars.filter(filterPreferences.load()::includes)
                 statusText?.text = resources.getQuantityString(
                     R.plurals.overlay_live_reports,
-                    feed.stars.size,
-                    feed.stars.size,
+                    visibleStars.size,
+                    visibleStars.size,
                 )
-                latestStars = feed.stars
-                renderStars(feed.stars)
+                latestStars = visibleStars
+                renderStars(visibleStars)
                 alertNotifier.notifyForMatches(feed.stars)
             }
             .onFailure { throwable ->

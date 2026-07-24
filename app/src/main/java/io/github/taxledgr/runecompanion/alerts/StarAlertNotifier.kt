@@ -21,6 +21,7 @@ import java.time.ZonedDateTime
 class StarAlertNotifier(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = StarAlertPreferences(appContext)
+    private val filterPreferences = StarFilterPreferences(appContext)
 
     init {
         createChannel()
@@ -33,7 +34,10 @@ class StarAlertNotifier(context: Context) {
             if (!settings.enabled || !canPostNotifications()) return
             if (settings.isQuietAt(ZonedDateTime.now().hour)) return
 
-            val matchingStars = stars.filter(settings::matches)
+            val filterSettings = filterPreferences.load()
+            val matchingStars = stars
+                .filter(settings::matches)
+                .filter(filterSettings::includes)
             val currentIds = matchingStars.map { it.alertId() }.toSet()
             val seenIds = preferences.readSeenIds()
             val unseenStars = matchingStars.filter { it.alertId() !in seenIds }

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
+import io.github.taxledgr.runecompanion.alerts.StarFilterSettings
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
@@ -58,10 +59,15 @@ private enum class WorldAccessFilter(val label: String) {
 fun RuneCompanionApp(
     state: StarUiState,
     alertSettings: StarAlertSettings,
+    filterSettings: StarFilterSettings,
     overlayPermissionGranted: Boolean,
     overlayRunning: Boolean,
     onRefresh: () -> Unit,
     onAlertWorldsChanged: (String) -> Unit,
+    onHideDangerousWorldsChanged: (Boolean) -> Unit,
+    onLocationSelected: (String, Boolean) -> Unit,
+    onLocationsSelected: (Collection<String>, Boolean) -> Unit,
+    onAllLocationsSelected: (Boolean) -> Unit,
     onAlertLocationsChanged: (String) -> Unit,
     onAlertTierToggled: (Int) -> Unit,
     onClearAlertTiers: () -> Unit,
@@ -84,6 +90,7 @@ fun RuneCompanionApp(
         selectedTier,
         accessFilter,
         selectedRegion,
+        filterSettings,
     ) {
         state.stars.filter { star ->
             val matchesTier = selectedTier == 0 || star.tier == selectedTier
@@ -98,7 +105,12 @@ fun RuneCompanionApp(
                 WorldAccessFilter.MEMBERS -> worldInfo?.members == true
             }
             val matchesRegion = selectedRegion == null || worldInfo?.region == selectedRegion
-            matchesTier && matchesQuery && matchesAccess && matchesRegion
+            val matchesSavedFilters = filterSettings.includes(star)
+            matchesTier &&
+                matchesQuery &&
+                matchesAccess &&
+                matchesRegion &&
+                matchesSavedFilters
         }
     }
 
@@ -135,6 +147,15 @@ fun RuneCompanionApp(
                     onQuietHoursEnabledChanged = onQuietHoursEnabledChanged,
                     onQuietHoursChanged = onQuietHoursChanged,
                     onOpenNotificationSettings = onOpenNotificationSettings,
+                )
+            }
+            item {
+                StarLocationFilterCard(
+                    settings = filterSettings,
+                    onHideDangerousWorldsChanged = onHideDangerousWorldsChanged,
+                    onLocationSelected = onLocationSelected,
+                    onLocationsSelected = onLocationsSelected,
+                    onAllLocationsSelected = onAllLocationsSelected,
                 )
             }
             item {
@@ -414,6 +435,14 @@ private fun StarCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (world.dangerous) {
+                        Text(
+                            "Dangerous world • ${world.activity}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(5.dp))
                 Text(
