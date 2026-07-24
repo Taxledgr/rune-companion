@@ -7,6 +7,7 @@ import io.github.taxledgr.runecompanion.toolkit.HiscoreClient
 import io.github.taxledgr.runecompanion.toolkit.PriceClient
 import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.PriceWatchItem
+import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
 import io.github.taxledgr.runecompanion.widget.RuneCompanionWidget
 import java.time.LocalDate
 import java.util.UUID
@@ -20,10 +21,11 @@ import kotlinx.coroutines.launch
 
 class FeatureViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = FeaturePreferences(application)
+    private val toolkitPreferences = ToolkitPreferences(application)
     private val backupManager = AppBackupManager(application)
     private val hiscoreClient = HiscoreClient()
     private val priceClient = PriceClient()
-    private val _state = MutableStateFlow(FeatureState(data = preferences.load()))
+    private val _state = MutableStateFlow(FeatureState(data = loadPersistedData()))
     val state: StateFlow<FeatureState> = _state.asStateFlow()
 
     init {
@@ -447,7 +449,14 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     fun reloadFromDisk() {
-        _state.update { it.copy(data = preferences.load()) }
+        _state.update { it.copy(data = loadPersistedData()) }
+    }
+
+    private fun loadPersistedData(): FeatureData {
+        val loaded = preferences.load()
+        val migrated = loaded.withTrackedPlayer(toolkitPreferences.load().trackedPlayer)
+        if (migrated != loaded) preferences.save(migrated)
+        return migrated
     }
 
     private fun updateData(block: (FeatureData) -> FeatureData) {

@@ -2,6 +2,7 @@ package io.github.taxledgr.runecompanion.features
 
 import io.github.taxledgr.runecompanion.toolkit.HiscoreSummary
 import io.github.taxledgr.runecompanion.toolkit.SkillScore
+import io.github.taxledgr.runecompanion.toolkit.TrackedPlayerProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -73,5 +74,28 @@ class FeatureModelsTest {
         assertEquals(100, normal.tax())
         assertEquals(10_000_000, capped.tax())
         assertEquals(900, normal.profitAfterTax())
+    }
+
+    @Test
+    fun trackedPlayerMigratesIntoMultiAccountDataWithoutReplacingExistingData() {
+        val baseline = HiscoreSummary("Player", listOf(SkillScore("Mining", 2, 80, 2_000)))
+        val latest = HiscoreSummary("Player", listOf(SkillScore("Mining", 1, 81, 2_500)))
+        val migrated = FeatureData(
+            goals = listOf(SkillGoal("goal", "Mining", 90, 50.0)),
+        ).withTrackedPlayer(
+            TrackedPlayerProfile(
+                username = "Player",
+                autoRefreshEnabled = true,
+                baseline = baseline,
+                latest = latest,
+                lastUpdatedEpochMillis = 10_000,
+            ),
+        )
+
+        assertEquals("Player", migrated.selectedAccount)
+        assertEquals(1, migrated.accounts.size)
+        assertEquals(2, migrated.accounts.single().snapshots.size)
+        assertEquals(1, migrated.goals.size)
+        assertEquals(migrated, migrated.withTrackedPlayer(TrackedPlayerProfile("player")))
     }
 }

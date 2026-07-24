@@ -11,15 +11,33 @@ class ToolkitPreferences(context: Context) {
     )
 
     fun load(): PersistedToolkitData {
-        val raw = preferences.getString(KEY_DATA, null) ?: return PersistedToolkitData()
-        return runCatching { decode(JSONObject(raw)) }.getOrDefault(PersistedToolkitData())
+        val primary = preferences.getString(KEY_DATA, null)
+        decodeOrNull(primary)?.let { data ->
+            ensureRecoveryCopy(requireNotNull(primary))
+            return data
+        }
+
+        val recovery = preferences.getString(KEY_DATA_RECOVERY, null)
+        decodeOrNull(recovery)?.let { data ->
+            preferences.edit().putString(KEY_DATA, recovery).apply()
+            return data
+        }
+        return PersistedToolkitData()
     }
 
     fun save(data: PersistedToolkitData) {
-        preferences.edit().putString(KEY_DATA, encode(data).toString()).apply()
+        val encoded = encode(data).toString()
+        val current = preferences.getString(KEY_DATA, null)
+        preferences.edit().apply {
+            if (current != null && current != encoded && decodeOrNull(current) != null) {
+                putString(KEY_DATA_RECOVERY, current)
+            }
+            putString(KEY_DATA, encoded)
+        }.apply()
     }
 
     private fun encode(data: PersistedToolkitData) = JSONObject().apply {
+        put("schemaVersion", CURRENT_SCHEMA_VERSION)
         put("reminders", JSONArray().apply {
             data.reminders.forEach { reminder ->
                 put(JSONObject().apply {
@@ -121,6 +139,15 @@ class ToolkitPreferences(context: Context) {
         )
     }
 
+    private fun decodeOrNull(raw: String?): PersistedToolkitData? =
+        raw?.let { runCatching { decode(JSONObject(it)) }.getOrNull() }
+
+    private fun ensureRecoveryCopy(primary: String) {
+        if (preferences.getString(KEY_DATA_RECOVERY, null) == null) {
+            preferences.edit().putString(KEY_DATA_RECOVERY, primary).apply()
+        }
+    }
+
     private fun TrackedPlayerProfile.toJson() = JSONObject().apply {
         put("username", username)
         put("autoRefresh", autoRefreshEnabled)
@@ -183,5 +210,7 @@ class ToolkitPreferences(context: Context) {
     private companion object {
         const val PREFERENCES_NAME = "rune_companion_toolkit"
         const val KEY_DATA = "toolkit_data"
+        const val KEY_DATA_RECOVERY = "toolkit_data_recovery"
+        const val CURRENT_SCHEMA_VERSION = 1
     }
 }

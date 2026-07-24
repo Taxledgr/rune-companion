@@ -5,7 +5,7 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 1.1
+## Version 1.1.1
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
 - Expandable fastest-route guidance on every one of the 82 star cards, ranked
@@ -40,6 +40,8 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - Manual DPS, consumable, daily/weekly routine, and shareable loadout tools
 - Android home-screen widget for the selected public-hiscore profile
 - Passphrase-protected AES-256-GCM backup and restore
+- Update-safe saved data with schema migration, last-known-good recovery, encrypted
+  Android cloud backup, and device-to-device transfer
 - No account login, ad SDK, analytics, or collection of personal information
 
 The persistent area and safe-world filters apply consistently to the main Stars list, floating overlay, and matching-star notifications.
@@ -173,6 +175,25 @@ If a cloud-sync client locks Gradle's generated files, use an external build dir
 ```powershell
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r ".\app\build\outputs\apk\debug\app-debug.apk"
 ```
+
+For later updates, use the fail-safe update script:
+
+```powershell
+.\scripts\install-update.ps1 -Device "PHONE_IP:WIRELESS_DEBUGGING_PORT" `
+  -ApkPath ".\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+The script only performs an in-place Android update. It never uninstalls Rune
+Companion or clears storage. If Android reports an incompatible signature or a
+lower version code, build with the same signing key and a higher version instead
+of uninstalling—the uninstall would erase private app data.
+
+Rune Companion 1.1.1 also keeps a last-known-good copy of its profile/toolkit
+documents, migrates the original tracked-player profile into the multi-account
+list, and opts its preferences into encrypted Android backup and phone-to-phone
+transfer. Android cloud restore depends on backup being enabled for the phone's
+Google account. The manual encrypted backup under **More → Encrypted backup**
+remains the most portable backup.
 
 ### Without ADB
 

@@ -3,6 +3,7 @@ package io.github.taxledgr.runecompanion.features
 import io.github.taxledgr.runecompanion.toolkit.HiscoreSummary
 import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.SkillScore
+import io.github.taxledgr.runecompanion.toolkit.TrackedPlayerProfile
 import io.github.taxledgr.runecompanion.toolkit.xpForLevel
 import kotlin.math.max
 import kotlin.math.pow
@@ -194,6 +195,33 @@ data class FeatureState(
     val message: String? = null,
     val priceSearchResults: List<PriceSearchItem> = emptyList(),
 )
+
+fun FeatureData.withTrackedPlayer(
+    profile: TrackedPlayerProfile,
+    migratedAtEpochMillis: Long = System.currentTimeMillis(),
+): FeatureData {
+    val username = profile.username.trim().take(12)
+    if (username.isBlank() || accounts.any { it.username.equals(username, ignoreCase = true) }) {
+        return this
+    }
+    val capturedAt = profile.lastUpdatedEpochMillis ?: migratedAtEpochMillis
+    val snapshots = buildList {
+        profile.baseline?.let { baseline ->
+            add(StatSnapshot((capturedAt - 1).coerceAtLeast(0), baseline))
+        }
+        profile.latest?.let { latest ->
+            if (latest != profile.baseline) add(StatSnapshot(capturedAt, latest))
+        }
+    }
+    return copy(
+        accounts = accounts + AccountProfile(
+            username = username,
+            snapshots = snapshots,
+            autoRefresh = profile.autoRefreshEnabled,
+        ),
+        selectedAccount = selectedAccount ?: username,
+    )
+}
 
 fun AccountProfile.magicLevel(): Int =
     latest?.summary?.skills?.firstOrNull { it.name == "Magic" }?.level ?: 1

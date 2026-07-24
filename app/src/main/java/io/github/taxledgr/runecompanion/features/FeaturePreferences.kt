@@ -10,16 +10,34 @@ class FeaturePreferences(context: Context) {
     private val preferences =
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-    fun load(): FeatureData = runCatching {
-        val raw = preferences.getString(KEY_DATA, null) ?: return FeatureData()
-        decode(JSONObject(raw))
-    }.getOrDefault(FeatureData())
+    fun load(): FeatureData {
+        val primary = preferences.getString(KEY_DATA, null)
+        decodeOrNull(primary)?.let { data ->
+            ensureRecoveryCopy(requireNotNull(primary))
+            return data
+        }
+
+        val recovery = preferences.getString(KEY_DATA_RECOVERY, null)
+        decodeOrNull(recovery)?.let { data ->
+            preferences.edit().putString(KEY_DATA, recovery).apply()
+            return data
+        }
+        return FeatureData()
+    }
 
     fun save(data: FeatureData) {
-        preferences.edit().putString(KEY_DATA, encode(data).toString()).apply()
+        val encoded = encode(data).toString()
+        val current = preferences.getString(KEY_DATA, null)
+        preferences.edit().apply {
+            if (current != null && current != encoded && decodeOrNull(current) != null) {
+                putString(KEY_DATA_RECOVERY, current)
+            }
+            putString(KEY_DATA, encoded)
+        }.apply()
     }
 
     private fun encode(data: FeatureData) = JSONObject().apply {
+        put("schemaVersion", CURRENT_SCHEMA_VERSION)
         put("accounts", data.accounts.jsonArray { account ->
             JSONObject().apply {
                 put("username", account.username)
@@ -96,6 +114,15 @@ class FeaturePreferences(context: Context) {
                 pohDestinations = teleport?.stringSet("pohDestinations") ?: emptySet(),
             ),
         )
+    }
+
+    private fun decodeOrNull(raw: String?): FeatureData? =
+        raw?.let { runCatching { decode(JSONObject(it)) }.getOrNull() }
+
+    private fun ensureRecoveryCopy(primary: String) {
+        if (preferences.getString(KEY_DATA_RECOVERY, null) == null) {
+            preferences.edit().putString(KEY_DATA_RECOVERY, primary).apply()
+        }
     }
 
     private fun HiscoreSummary.toJson() = JSONObject().apply {
@@ -237,5 +264,7 @@ class FeaturePreferences(context: Context) {
     companion object {
         const val PREFERENCES_NAME = "rune_companion_features"
         private const val KEY_DATA = "feature_data"
+        private const val KEY_DATA_RECOVERY = "feature_data_recovery"
+        private const val CURRENT_SCHEMA_VERSION = 1
     }
 }
