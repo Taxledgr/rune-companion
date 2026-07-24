@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Color
@@ -39,6 +40,7 @@ import io.github.taxledgr.runecompanion.features.FeaturePreferences
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
 import io.github.taxledgr.runecompanion.features.StarTravelPlanner
+import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
 import io.github.taxledgr.runecompanion.util.reportAge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +59,8 @@ class OverlayService : Service() {
     private val alertNotifier by lazy { StarAlertNotifier(this) }
     private val filterPreferences by lazy { StarFilterPreferences(this) }
     private val featurePreferences by lazy { FeaturePreferences(this) }
+    private val toolkitPreferences by lazy { ToolkitPreferences(this) }
+    private val overlayPreferences by lazy { OverlayPreferences(this) }
     private lateinit var windowManager: WindowManager
     private lateinit var overlayParams: WindowManager.LayoutParams
     private var overlayView: View? = null
@@ -65,8 +69,11 @@ class OverlayService : Service() {
     private var starContainer: LinearLayout? = null
     private var starScroll: ScrollView? = null
     private var statusText: TextView? = null
+    private var headerTitle: TextView? = null
     private var refreshJob: Job? = null
     private var latestStars: List<ShootingStar> = emptyList()
+    private var overlaySettings = OverlaySettings()
+    private var activeBadgeCount = 0
     private var expandedStarId: String? = null
     private var panelX = 0
     private var panelY = 0
@@ -90,8 +97,12 @@ class OverlayService : Service() {
             return START_NOT_STICKY
         }
 
+        overlaySettings = overlayPreferences.load()
         if (overlayView == null) {
             showOverlay()
+        } else if (intent?.action == ACTION_RELOAD) {
+            expandedStarId = null
+            renderActiveModule()
         }
         _running.value = true
         beginRefreshing()
@@ -127,21 +138,32 @@ class OverlayService : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val title = textView("✦  SHOOTING STARS", 15f, Color.rgb(244, 201, 93)).apply {
+        val title = textView("", 14f, Color.rgb(244, 201, 93)).apply {
             setTypeface(typeface, Typeface.BOLD)
             setPadding(0, 0, dp(8), 0)
+            maxLines = 1
         }
+        headerTitle = title
         header.addView(
             title,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        header.addView(
+            actionButton("‹", "Previous enabled section") {
+                cycleModule(-1)
+            },
+        )
+        header.addView(
+            actionButton("›", "Next enabled section") {
+                cycleModule(1)
+            },
         )
         header.addView(
             actionButton("−", "Minimise to floating bubble") {
                 minimiseToBubble()
             },
         )
-        header.addView(actionButton("↻", "Refresh star reports") { refreshNow() })
-        header.addView(actionButton("×", "Close floating star panel") { stopSelf() })
+        header.addView(actionButton("×", "Close Rune Companion panel") { stopSelf() })
         panel.addView(header)
 
         statusText = textView(
@@ -181,7 +203,7 @@ class OverlayService : Service() {
             background = bubbleBackground()
             elevation = dp(12).toFloat()
             visibility = View.GONE
-            contentDescription = "Restore Shooting Stars panel"
+            contentDescription = "Restore Rune Companion panel"
         }
         root.addView(
             panel,
@@ -219,6 +241,7 @@ class OverlayService : Service() {
         )
         windowManager.addView(root, overlayParams)
         overlayView = root
+        renderActiveModule()
     }
 
     private fun beginRefreshing() {
@@ -231,28 +254,90 @@ class OverlayService : Service() {
         }
     }
 
-    private fun refreshNow() {
-        serviceScope.launch { loadStars() }
-    }
-
     private suspend fun loadStars() {
-        statusText?.setText(R.string.overlay_updating)
+        if (overlaySettings.selectedModule == OverlayModule.STARS) {
+            statusText?.setText(R.string.overlay_updating)
+        }
         runCatching { StarRepository.latest() }
             .onSuccess { feed ->
                 val visibleStars = feed.stars.filter(filterPreferences.load()::includes)
-                statusText?.text = resources.getQuantityString(
-                    R.plurals.overlay_live_reports,
-                    visibleStars.size,
-                    visibleStars.size,
-                )
                 latestStars = visibleStars
-                updateBubble(visibleStars.size)
-                renderStars(visibleStars)
+                renderActiveModule()
                 alertNotifier.notifyForMatches(feed.stars)
             }
             .onFailure { throwable ->
-                statusText?.text = throwable.message ?: "Feed unavailable"
+                if (overlaySettings.selectedModule == OverlayModule.STARS) {
+                    statusText?.text = throwable.message ?: "Feed unavailable"
+                } else {
+                    renderActiveModule()
+                }
             }
+    }
+
+    private fun cycleModule(delta: Int) {
+        val modules = overlaySettings.normalized().orderedModules
+        if (modules.isEmpty()) return
+        val currentIndex = modules.indexOf(overlaySettings.selectedModule).coerceAtLeast(0)
+        val nextIndex = (currentIndex + delta).mod(modules.size)
+        overlaySettings = overlaySettings.copy(selectedModule = modules[nextIndex]).normalized()
+        overlayPreferences.save(overlaySettings)
+        expandedStarId = null
+        renderActiveModule()
+    }
+
+    private fun renderActiveModule() {
+        val module = overlaySettings.normalized().selectedModule
+        headerTitle?.text = "${module.symbol}  ${module.label.uppercase()}"
+        if (module == OverlayModule.STARS) {
+            renderStars(latestStars)
+            return
+        }
+
+        expandedStarId = null
+        destroyMapViews()
+        val content = OverlayContentBuilder.build(
+            module = module,
+            toolkit = toolkitPreferences.load(),
+            features = featurePreferences.load(),
+            stars = latestStars,
+        )
+        activeBadgeCount = content.badgeCount
+        statusText?.text = "${modulePositionLabel()} • ${content.summary}"
+        updateBubble(module, activeBadgeCount)
+        val visibleEntries = content.entries.take(MAX_OVERLAY_ENTRIES)
+        starContainer?.apply {
+            removeAllViews()
+            if (visibleEntries.isEmpty()) {
+                addView(textView(content.emptyMessage, 13f, Color.LTGRAY).apply {
+                    setPadding(0, dp(8), 0, dp(8))
+                })
+            } else {
+                visibleEntries.forEachIndexed { index, entry ->
+                    if (index > 0) addView(contentDivider())
+                    addView(contentRow(entry))
+                }
+                if (content.entries.size > visibleEntries.size) {
+                    addView(contentDivider())
+                    addView(
+                        textView(
+                            "+${content.entries.size - visibleEntries.size} more • " +
+                                "open Rune Companion for the full list",
+                            11f,
+                            Color.rgb(185, 201, 212),
+                        ).apply {
+                            setPadding(0, dp(8), 0, dp(5))
+                        },
+                    )
+                }
+            }
+        }
+        updateScrollHeight(
+            if (visibleEntries.size > COMPACT_ENTRY_LIMIT) {
+                EXPANDED_LIST_HEIGHT_DP
+            } else {
+                null
+            },
+        )
     }
 
     private fun renderStars(stars: List<ShootingStar>) {
@@ -261,6 +346,10 @@ class OverlayService : Service() {
             expandedStarId = null
         }
         destroyMapViews()
+        activeBadgeCount = stars.size
+        statusText?.text = "${modulePositionLabel()} • ${stars.size} live reports • " +
+            "tap one for route & map"
+        updateBubble(OverlayModule.STARS, activeBadgeCount)
         starContainer?.apply {
             removeAllViews()
             if (visibleStars.isEmpty()) {
@@ -279,14 +368,59 @@ class OverlayService : Service() {
                 }
             }
         }
-        starScroll?.layoutParams = starScroll?.layoutParams?.apply {
-            height = if (expandedStarId == null) {
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            } else {
-                dp(EXPANDED_LIST_HEIGHT_DP)
+        updateScrollHeight(
+            if (expandedStarId == null) null else EXPANDED_LIST_HEIGHT_DP,
+        )
+    }
+
+    private fun contentRow(entry: OverlayEntry): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(5), 0, dp(5))
+            addView(
+                textView(entry.title, 13f, entry.tone.colour()).apply {
+                    setTypeface(typeface, Typeface.BOLD)
+                    maxLines = 3
+                },
+            )
+            if (entry.detail.isNotBlank()) {
+                addView(
+                    textView(entry.detail, 11f, Color.rgb(185, 201, 212)).apply {
+                        setPadding(0, dp(2), 0, 0)
+                        maxLines = 4
+                    },
+                )
             }
         }
+
+    private fun OverlayTone.colour(): Int = when (this) {
+        OverlayTone.NORMAL -> Color.WHITE
+        OverlayTone.GOOD -> Color.rgb(89, 211, 199)
+        OverlayTone.WARNING -> Color.rgb(244, 201, 93)
+        OverlayTone.DANGER -> Color.rgb(255, 126, 126)
+    }
+
+    private fun contentDivider() =
+        View(this).apply {
+            setBackgroundColor(Color.rgb(43, 64, 78))
+        }.also { divider ->
+            divider.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(1),
+            )
+        }
+
+    private fun updateScrollHeight(fixedHeightDp: Int?) {
+        starScroll?.layoutParams = starScroll?.layoutParams?.apply {
+            height = fixedHeightDp?.let(::dp) ?: LinearLayout.LayoutParams.WRAP_CONTENT
+        }
         starScroll?.requestLayout()
+    }
+
+    private fun modulePositionLabel(): String {
+        val modules = overlaySettings.orderedModules
+        val index = modules.indexOf(overlaySettings.selectedModule).coerceAtLeast(0)
+        return "${index + 1}/${modules.size.coerceAtLeast(1)}"
     }
 
     private fun starRow(star: ShootingStar): View {
@@ -520,7 +654,7 @@ class OverlayService : Service() {
         bubble.visibility = View.VISIBLE
         overlayParams.width = dp(BUBBLE_SIZE_DP)
         overlayParams.height = dp(BUBBLE_SIZE_DP)
-        updateBubble(latestStars.size)
+        updateBubble(overlaySettings.selectedModule, activeBadgeCount)
         snapBubbleToEdge(overlayParams)
     }
 
@@ -538,8 +672,11 @@ class OverlayService : Service() {
         overlayView?.let { windowManager.updateViewLayout(it, overlayParams) }
     }
 
-    private fun updateBubble(starCount: Int) {
-        bubbleView?.text = "✦\n$starCount"
+    private fun updateBubble(module: OverlayModule, count: Int) {
+        bubbleView?.apply {
+            text = "${module.symbol}\n$count"
+            contentDescription = "Restore ${module.label} panel"
+        }
     }
 
     private fun clampOverlayPosition(params: WindowManager.LayoutParams) {
@@ -668,8 +805,11 @@ class OverlayService : Service() {
         private const val CHANNEL_ID = "rune_companion_overlay"
         private const val NOTIFICATION_ID = 1001
         private const val ACTION_STOP = "io.github.taxledgr.runecompanion.STOP_OVERLAY"
+        private const val ACTION_RELOAD = "io.github.taxledgr.runecompanion.RELOAD_OVERLAY"
         private const val REFRESH_INTERVAL_MS = 60_000L
         private const val MAX_OVERLAY_STARS = 5
+        private const val MAX_OVERLAY_ENTRIES = 8
+        private const val COMPACT_ENTRY_LIMIT = 5
         private const val PANEL_WIDTH_DP = 310
         private const val BUBBLE_SIZE_DP = 58
         private const val BUBBLE_EDGE_INSET_DP = 8
@@ -679,5 +819,8 @@ class OverlayService : Service() {
 
         private val _running = MutableStateFlow(false)
         val running = _running.asStateFlow()
+
+        fun reloadIntent(context: Context): Intent =
+            Intent(context, OverlayService::class.java).setAction(ACTION_RELOAD)
     }
 }

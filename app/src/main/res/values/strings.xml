@@ -3,7 +3,7 @@
     <string name="widget_description">Selected OSRS account and latest public hiscore summary</string>
     <string name="overlay_channel_name">Rune Companion overlay</string>
     <string name="overlay_notification_title">Rune Companion overlay is active</string>
-    <string name="overlay_notification_text">Showing OSRS Shooting Stars reports</string>
+    <string name="overlay_notification_text">Showing your configured Rune Companion sections</string>
     <string name="overlay_loading">Loading Star Miners…</string>
     <string name="overlay_updating">Updating Star Miners…</string>
     <plurals name="overlay_live_reports">

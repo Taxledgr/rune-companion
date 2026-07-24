@@ -101,6 +101,7 @@ class AppBackupManager(private val context: Context) {
         val PREFERENCE_FILES = listOf(
             "rune_companion_toolkit",
             "rune_companion_features",
+            "rune_companion_overlay",
             "shooting_star_alerts",
             "shooting_star_filters",
         )

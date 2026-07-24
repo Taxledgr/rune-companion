@@ -57,6 +57,8 @@ import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
 import io.github.taxledgr.runecompanion.features.StarTravelPlanner
+import io.github.taxledgr.runecompanion.overlay.OverlayModule
+import io.github.taxledgr.runecompanion.overlay.OverlaySettings
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
 import io.github.taxledgr.runecompanion.ui.theme.RuneSurfaceRaised
@@ -77,6 +79,7 @@ fun RuneCompanionApp(
     filterSettings: StarFilterSettings,
     overlayPermissionGranted: Boolean,
     overlayRunning: Boolean,
+    overlaySettings: OverlaySettings,
     onRefresh: () -> Unit,
     onAlertWorldsChanged: (String) -> Unit,
     onHideDangerousWorldsChanged: (Boolean) -> Unit,
@@ -92,6 +95,8 @@ fun RuneCompanionApp(
     onOpenNotificationSettings: () -> Unit,
     onGrantOverlayPermission: () -> Unit,
     onToggleOverlay: () -> Unit,
+    onOverlayModuleToggled: (OverlayModule) -> Unit,
+    onOverlayModuleSelected: (OverlayModule) -> Unit,
     onOpenStarMiners: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
@@ -148,8 +153,11 @@ fun RuneCompanionApp(
                 OverlayCard(
                     permissionGranted = overlayPermissionGranted,
                     running = overlayRunning,
+                    settings = overlaySettings,
                     onGrantPermission = onGrantOverlayPermission,
                     onToggle = onToggleOverlay,
+                    onModuleToggled = onOverlayModuleToggled,
+                    onModuleSelected = onOverlayModuleSelected,
                 )
             }
             item {
@@ -337,9 +345,13 @@ private fun Header(starCount: Int, fetchedAt: String?) {
 private fun OverlayCard(
     permissionGranted: Boolean,
     running: Boolean,
+    settings: OverlaySettings,
     onGrantPermission: () -> Unit,
     onToggle: () -> Unit,
+    onModuleToggled: (OverlayModule) -> Unit,
+    onModuleSelected: (OverlayModule) -> Unit,
 ) {
+    var configuring by remember { mutableStateOf(false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = RuneSurfaceRaised),
         shape = RoundedCornerShape(18.dp),
@@ -355,7 +367,7 @@ private fun OverlayCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Floating star panel",
+                        text = "Floating companion panel",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -390,6 +402,80 @@ private fun OverlayCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                "${settings.enabledModules.size} " +
+                    "${if (settings.enabledModules.size == 1) "section" else "sections"} " +
+                    "enabled • showing ${settings.selectedModule.label}",
+                style = MaterialTheme.typography.bodySmall,
+                color = RuneGold,
+                fontWeight = FontWeight.SemiBold,
+            )
+            OutlinedButton(
+                onClick = { configuring = !configuring },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (configuring) "Hide overlay configuration" else "Configure overlay sections")
+            }
+            if (configuring) {
+                Text(
+                    "Choose everything available in the pop-out",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                OverlayModule.entries.groupBy(OverlayModule::category).forEach { (category, modules) ->
+                    Text(
+                        category,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    modules.chunked(2).forEach { rowModules ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowModules.forEach { module ->
+                                FilterChip(
+                                    modifier = Modifier.weight(1f),
+                                    selected = module in settings.enabledModules,
+                                    onClick = { onModuleToggled(module) },
+                                    label = {
+                                        Text(
+                                            "${module.symbol} ${module.label}",
+                                            maxLines = 2,
+                                        )
+                                    },
+                                )
+                            }
+                            if (rowModules.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+                Text(
+                    "Current section when the panel opens",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    settings.orderedModules.forEach { module ->
+                        FilterChip(
+                            selected = module == settings.selectedModule,
+                            onClick = { onModuleSelected(module) },
+                            label = { Text("${module.symbol} ${module.label}") },
+                        )
+                    }
+                }
+                Text(
+                    "Use ‹ and › in the floating panel to cycle enabled sections. " +
+                        "Changes apply immediately while it is running.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

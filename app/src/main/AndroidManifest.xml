@@ -33,7 +33,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started floating panel showing read-only OSRS Shooting Stars reports" />
+                android:value="User-started floating panel showing read-only Rune Companion data" />
         </service>
 
         <receiver

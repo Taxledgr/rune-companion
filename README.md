@@ -5,6 +5,24 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.5
+
+- The floating window is now a configurable Rune Companion dashboard instead
+  of a Shooting Stars-only panel.
+- Enable any combination of 27 live, progress, planning, reference, economy,
+  and history sections, then use **‹** and **›** in the panel to switch between
+  them without returning to the app.
+- Available overlay sections include stars, timers, Slayer, trip timer,
+  checklist, player stats, goals, quests and diaries, farming, routines, itineraries, loadouts,
+  teleports, GE tools, loot, supplies, Wilderness risk, and activity sessions.
+- The compact bubble displays the current section's symbol and count. Its
+  enabled sections and current selection persist across app restarts, in-place
+  updates, encrypted backups, and phone transfers.
+- Shooting Stars retain their expandable fastest routes, exact directions,
+  shortcuts, requirements, Wilderness warnings, and landing-site maps.
+- Version 1.5 uses Android version code 17 and updates earlier versions in place
+  without deleting saved profiles or journals.
+
 ## Version 1.3
 
 - A first-class **Wiki** tab with full in-app OSRS Wiki search and article reading;

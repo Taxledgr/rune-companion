@@ -20,7 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import io.github.taxledgr.runecompanion.overlay.OverlayPreferences
 import io.github.taxledgr.runecompanion.overlay.OverlayService
+import io.github.taxledgr.runecompanion.overlay.OverlaySettings
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.ui.WikiReaderScreen
 import io.github.taxledgr.runecompanion.ui.isWikiUrl
@@ -36,9 +38,12 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = MutableStateFlow(false)
     private val toolkitViewModel: ToolkitViewModel by viewModels()
     private val featureViewModel: FeatureViewModel by viewModels()
+    private val overlayPreferences by lazy { OverlayPreferences(this) }
+    private val overlaySettings = MutableStateFlow(OverlaySettings())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        overlaySettings.value = overlayPreferences.load()
         setContent {
             RuneCompanionTheme {
                 val starViewModel: StarViewModel = viewModel()
@@ -51,6 +56,7 @@ class MainActivity : ComponentActivity() {
                 val permission = overlayPermission.collectAsStateWithLifecycle()
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
+                val configuredOverlay = overlaySettings.collectAsStateWithLifecycle()
                 var activeWikiUrl by rememberSaveable { mutableStateOf<String?>(null) }
                 val openCompanionUrl: (String) -> Unit = { url ->
                     if (isWikiUrl(url)) activeWikiUrl = url else openUrl(url)
@@ -125,6 +131,7 @@ class MainActivity : ComponentActivity() {
                             filterSettings = starFilterSettings.value,
                             overlayPermissionGranted = permission.value,
                             overlayRunning = overlayRunning.value,
+                            overlaySettings = configuredOverlay.value,
                             onRefresh = starViewModel::refresh,
                             onAlertWorldsChanged = starViewModel::setAlertWorlds,
                             onHideDangerousWorldsChanged =
@@ -169,6 +176,12 @@ class MainActivity : ComponentActivity() {
                                     startOverlay(this)
                                 }
                             },
+                            onOverlayModuleToggled = { module ->
+                                updateOverlaySettings { it.toggled(module) }
+                            },
+                            onOverlayModuleSelected = { module ->
+                                updateOverlaySettings { it.selected(module) }
+                            },
                             onOpenStarMiners = ::openStarMiners,
                             onOpenUrl = openCompanionUrl,
                         )
@@ -183,6 +196,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         overlayPermission.value = Settings.canDrawOverlays(this)
         notificationPermission.value = canPostNotifications()
+        overlaySettings.value = overlayPreferences.load()
     }
 
     override fun onStart() {
@@ -227,6 +241,15 @@ class MainActivity : ComponentActivity() {
                 this,
                 Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
+
+    private fun updateOverlaySettings(transform: (OverlaySettings) -> OverlaySettings) {
+        val updated = transform(overlaySettings.value).normalized()
+        overlayPreferences.save(updated)
+        overlaySettings.value = updated
+        if (OverlayService.running.value) {
+            startService(OverlayService.reloadIntent(this))
+        }
+    }
 }
 
 private fun startOverlay(context: Context) {
