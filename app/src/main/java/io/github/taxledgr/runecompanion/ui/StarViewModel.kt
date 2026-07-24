@@ -7,9 +7,12 @@ import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
 import io.github.taxledgr.runecompanion.alerts.StarAlertPreferences
 import io.github.taxledgr.runecompanion.alerts.StarAlertScheduler
 import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
+import io.github.taxledgr.runecompanion.alerts.parseLocations
 import io.github.taxledgr.runecompanion.alerts.parseWorlds
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarRepository
+import io.github.taxledgr.runecompanion.data.WorldDirectoryClient
+import io.github.taxledgr.runecompanion.data.WorldInfo
 import java.time.Instant
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,11 +27,13 @@ data class StarUiState(
     val fetchedAt: Instant? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val worlds: Map<Int, WorldInfo> = emptyMap(),
 )
 
 class StarViewModel(application: Application) : AndroidViewModel(application) {
     private val alertPreferences = StarAlertPreferences(application)
     private val alertNotifier = StarAlertNotifier(application)
+    private val worldDirectoryClient = WorldDirectoryClient()
     private val _state = MutableStateFlow(StarUiState(isLoading = true))
     val state: StateFlow<StarUiState> = _state.asStateFlow()
     private val _alertSettings = MutableStateFlow(alertPreferences.load())
@@ -45,6 +50,14 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
                 delay(REFRESH_INTERVAL_MS)
             }
         }
+        viewModelScope.launch {
+            runCatching { worldDirectoryClient.fetch() }
+                .onSuccess { worlds ->
+                    _state.update { state ->
+                        state.copy(worlds = worlds.associateBy(WorldInfo::world))
+                    }
+                }
+        }
     }
 
     fun refresh() {
@@ -56,6 +69,7 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
                     _state.value = StarUiState(
                         stars = feed.stars,
                         fetchedAt = feed.fetchedAt,
+                        worlds = _state.value.worlds,
                     )
                     alertNotifier.notifyForMatches(feed.stars)
                 }
@@ -73,6 +87,25 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
     fun setAlertWorlds(input: String) {
         updateAlertSettings(
             _alertSettings.value.copy(worlds = parseWorlds(input)),
+        )
+    }
+
+    fun setAlertLocations(input: String) {
+        updateAlertSettings(
+            _alertSettings.value.copy(locations = parseLocations(input)),
+        )
+    }
+
+    fun setQuietHoursEnabled(enabled: Boolean) {
+        updateAlertSettings(_alertSettings.value.copy(quietHoursEnabled = enabled))
+    }
+
+    fun setQuietHours(startHour: Int, endHour: Int) {
+        updateAlertSettings(
+            _alertSettings.value.copy(
+                quietStartHour = startHour.coerceIn(0, 23),
+                quietEndHour = endHour.coerceIn(0, 23),
+            ),
         )
     }
 

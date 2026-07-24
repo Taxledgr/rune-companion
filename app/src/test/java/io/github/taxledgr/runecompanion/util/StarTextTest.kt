@@ -14,4 +14,18 @@ class StarTextTest {
         assertEquals("12 mins ago", reportAge(now.minusSeconds(12 * 60), now))
         assertEquals("2 hrs ago", reportAge(now.minusSeconds(2 * 60 * 60), now))
     }
+
+    @Test
+    fun `estimates remaining star layers at seven minutes each`() {
+        assertEquals(
+            "Estimate: up to 48 min left",
+            starTimingSummary(
+                calledAt = now.minusSeconds(60),
+                tier = 7,
+                minimumArrival = null,
+                maximumArrival = null,
+                now = now,
+            ),
+        )
+    }
 }

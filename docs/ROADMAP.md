@@ -2,30 +2,28 @@
 
 This roadmap favours passive reference tools, public data, and information the player enters deliberately. Features that would inspect or interact with the live OSRS client require a fresh Jagex rules review before development.
 
-## Shooting Stars
+## Delivered in version 0.3
 
-1. Favourite landing locations and regions
-2. Arrival and likely-depletion windows derived from available feed timestamps
-3. Members/free-to-play and region filters
-4. Notification quiet hours and per-filter alert sounds
-5. Report history and feed-health status
-6. Direct map navigation and a cleaner one-handed overlay mode
-7. Migration to an official Star Miners API if one becomes available
+- Favourite landing-location, world, and tier alerts
+- Arrival and estimated depletion windows
+- Members/free-to-play and official server-region filters
+- Notification quiet hours and Android notification-sound controls
+- Full and compact draggable overlay modes
+- Farming, birdhouse, daily, and custom reminders
+- Slayer task counter; quest, diary, collection-goal, and loadout journal
+- GE price watchlist, official hiscore cards, XP/drop/supply calculators
+- Manual boss/raid timer and OSRS Wiki quick references
 
-## General gameplay companions
+## Next improvements
 
-1. Manual farming, birdhouse, herb-box, and daily-task timers
-2. Slayer task notebook with manual kill counts, weakness notes, and drop links
-3. Grand Exchange watchlist using public price data
-4. XP, supplies, drop-rate, and skilling-goal calculators
-5. Gear and inventory loadout checklists
-6. Quest and achievement-diary checklists
-7. Fairy-ring, spirit-tree, teleport, and transportation reference
-8. Manual boss-trip and raid-session timers
-9. Clue-step search and coordinate reference driven by manual selection
-10. Public hiscore progress cards for a player name the user chooses
-11. Collection-log goal lists and dry-streak probability calculators
-12. Custom reminders that do not depend on reading the game client
+1. Import/export and device backup chosen by the user
+2. Grouped loadouts with quantities and notes
+3. Slayer weakness notes and direct monster-drop links
+4. Searchable clue-step and coordinate reference
+5. Skilling-goal calculators with items/actions remaining
+6. Star report history and feed-health status
+7. More detailed hiscore progress comparisons saved locally
+8. Migration to an official Star Miners API if one becomes available
 
 ## Explicitly out of scope
 

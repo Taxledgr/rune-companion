@@ -46,7 +46,10 @@ class OverlayService : Service() {
     private var overlayView: View? = null
     private var starContainer: LinearLayout? = null
     private var statusText: TextView? = null
+    private var compactButton: TextView? = null
     private var refreshJob: Job? = null
+    private var latestStars: List<ShootingStar> = emptyList()
+    private var compact = false
 
     override fun onCreate() {
         super.onCreate()
@@ -107,6 +110,11 @@ class OverlayService : Service() {
             title,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
+        compactButton = actionButton("▤") {
+            compact = !compact
+            compactButton?.text = if (compact) "▣" else "▤"
+            renderStars(latestStars)
+        }.also(header::addView)
         header.addView(actionButton("↻") { refreshNow() })
         header.addView(actionButton("×") { stopSelf() })
         root.addView(header)
@@ -164,7 +172,8 @@ class OverlayService : Service() {
                     feed.stars.size,
                     feed.stars.size,
                 )
-                renderStars(feed.stars.take(MAX_OVERLAY_STARS))
+                latestStars = feed.stars
+                renderStars(feed.stars)
                 alertNotifier.notifyForMatches(feed.stars)
             }
             .onFailure { throwable ->
@@ -173,12 +182,15 @@ class OverlayService : Service() {
     }
 
     private fun renderStars(stars: List<ShootingStar>) {
+        val visibleStars = stars.take(
+            if (compact) COMPACT_OVERLAY_STARS else MAX_OVERLAY_STARS,
+        )
         starContainer?.apply {
             removeAllViews()
-            if (stars.isEmpty()) {
+            if (visibleStars.isEmpty()) {
                 addView(textView("No active reports", 13f, Color.LTGRAY))
             } else {
-                stars.forEachIndexed { index, star ->
+                visibleStars.forEachIndexed { index, star ->
                     if (index > 0) {
                         addView(View(this@OverlayService).apply {
                             setBackgroundColor(Color.rgb(43, 64, 78))
@@ -309,6 +321,7 @@ class OverlayService : Service() {
         private const val ACTION_STOP = "io.github.taxledgr.runecompanion.STOP_OVERLAY"
         private const val REFRESH_INTERVAL_MS = 60_000L
         private const val MAX_OVERLAY_STARS = 5
+        private const val COMPACT_OVERLAY_STARS = 2
 
         private val _running = MutableStateFlow(false)
         val running = _running.asStateFlow()

@@ -32,6 +32,24 @@ class StarAlertSettingsTest {
     }
 
     @Test
+    fun `location filters are case insensitive partial matches`() {
+        assertTrue(StarAlertSettings(locations = setOf("fala")).matches(star))
+        assertFalse(StarAlertSettings(locations = setOf("Wilderness")).matches(star))
+    }
+
+    @Test
+    fun `quiet hours support overnight windows`() {
+        val settings = StarAlertSettings(
+            quietHoursEnabled = true,
+            quietStartHour = 22,
+            quietEndHour = 7,
+        )
+        assertTrue(settings.isQuietAt(23))
+        assertTrue(settings.isQuietAt(6))
+        assertFalse(settings.isQuietAt(12))
+    }
+
+    @Test
     fun `world parser accepts commas and spaces and ignores invalid values`() {
         assertEquals(
             setOf(301, 330, 444),

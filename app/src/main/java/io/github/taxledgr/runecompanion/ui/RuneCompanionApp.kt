@@ -46,6 +46,13 @@ import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
 import io.github.taxledgr.runecompanion.ui.theme.RuneSurfaceRaised
 import io.github.taxledgr.runecompanion.util.reportAge
+import io.github.taxledgr.runecompanion.util.starTimingSummary
+
+private enum class WorldAccessFilter(val label: String) {
+    ANY("Any access"),
+    FREE("F2P worlds"),
+    MEMBERS("Members"),
+}
 
 @Composable
 fun RuneCompanionApp(
@@ -55,23 +62,43 @@ fun RuneCompanionApp(
     overlayRunning: Boolean,
     onRefresh: () -> Unit,
     onAlertWorldsChanged: (String) -> Unit,
+    onAlertLocationsChanged: (String) -> Unit,
     onAlertTierToggled: (Int) -> Unit,
     onClearAlertTiers: () -> Unit,
     onAlertsEnabledChanged: (Boolean) -> Unit,
+    onQuietHoursEnabledChanged: (Boolean) -> Unit,
+    onQuietHoursChanged: (Int, Int) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onGrantOverlayPermission: () -> Unit,
     onToggleOverlay: () -> Unit,
     onOpenStarMiners: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     var selectedTier by remember { mutableIntStateOf(0) }
-    val filteredStars = remember(state.stars, query, selectedTier) {
+    var accessFilter by remember { mutableStateOf(WorldAccessFilter.ANY) }
+    var selectedRegion by remember { mutableStateOf<String?>(null) }
+    val filteredStars = remember(
+        state.stars,
+        state.worlds,
+        query,
+        selectedTier,
+        accessFilter,
+        selectedRegion,
+    ) {
         state.stars.filter { star ->
             val matchesTier = selectedTier == 0 || star.tier == selectedTier
             val matchesQuery = query.isBlank() ||
                 star.world.toString().contains(query, ignoreCase = true) ||
                 star.locationName.contains(query, ignoreCase = true) ||
                 star.calledBy.contains(query, ignoreCase = true)
-            matchesTier && matchesQuery
+            val worldInfo = state.worlds[star.world]
+            val matchesAccess = when (accessFilter) {
+                WorldAccessFilter.ANY -> true
+                WorldAccessFilter.FREE -> worldInfo?.members == false
+                WorldAccessFilter.MEMBERS -> worldInfo?.members == true
+            }
+            val matchesRegion = selectedRegion == null || worldInfo?.region == selectedRegion
+            matchesTier && matchesQuery && matchesAccess && matchesRegion
         }
     }
 
@@ -101,9 +128,13 @@ fun RuneCompanionApp(
                 StarAlertSettingsCard(
                     settings = alertSettings,
                     onWorldsChanged = onAlertWorldsChanged,
+                    onLocationsChanged = onAlertLocationsChanged,
                     onTierToggled = onAlertTierToggled,
                     onClearTiers = onClearAlertTiers,
                     onEnabledChanged = onAlertsEnabledChanged,
+                    onQuietHoursEnabledChanged = onQuietHoursEnabledChanged,
+                    onQuietHoursChanged = onQuietHoursChanged,
+                    onOpenNotificationSettings = onOpenNotificationSettings,
                 )
             }
             item {
@@ -141,6 +172,19 @@ fun RuneCompanionApp(
                     onTierSelected = { selectedTier = it },
                 )
             }
+            item {
+                WorldFilters(
+                    selectedAccess = accessFilter,
+                    onAccessSelected = { accessFilter = it },
+                    selectedRegion = selectedRegion,
+                    regions = state.worlds.values
+                        .filter { world -> state.stars.any { it.world == world.world } }
+                        .map { it.region }
+                        .distinct()
+                        .sorted(),
+                    onRegionSelected = { selectedRegion = it },
+                )
+            }
             state.error?.let { error ->
                 item {
                     ErrorCard(message = error, onRetry = onRefresh)
@@ -155,10 +199,57 @@ fun RuneCompanionApp(
                 items = filteredStars,
                 key = { "${it.world}-${it.locationId}-${it.calledAt}" },
             ) { star ->
-                StarCard(star)
+                StarCard(star, state.worlds[star.world])
             }
             item {
                 Attribution(onOpenStarMiners)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorldFilters(
+    selectedAccess: WorldAccessFilter,
+    onAccessSelected: (WorldAccessFilter) -> Unit,
+    selectedRegion: String?,
+    regions: List<String>,
+    onRegionSelected: (String?) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            WorldAccessFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = selectedAccess == filter,
+                    onClick = { onAccessSelected(filter) },
+                    label = { Text(filter.label) },
+                )
+            }
+        }
+        if (regions.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = selectedRegion == null,
+                    onClick = { onRegionSelected(null) },
+                    label = { Text("Any server region") },
+                )
+                regions.forEach { region ->
+                    FilterChip(
+                        selected = selectedRegion == region,
+                        onClick = { onRegionSelected(region) },
+                        label = { Text(region) },
+                    )
+                }
             }
         }
     }
@@ -276,7 +367,10 @@ private fun TierFilters(selectedTier: Int, onTierSelected: (Int) -> Unit) {
 }
 
 @Composable
-private fun StarCard(star: ShootingStar) {
+private fun StarCard(
+    star: ShootingStar,
+    worldInfo: io.github.taxledgr.runecompanion.data.WorldInfo?,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -314,6 +408,13 @@ private fun StarCard(star: ShootingStar) {
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                worldInfo?.let { world ->
+                    Text(
+                        "${if (world.members) "Members" else "F2P"} • ${world.region}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(5.dp))
                 Text(
                     text = "${reportAge(star.calledAt)} • ${star.calledBy}",
@@ -322,6 +423,18 @@ private fun StarCard(star: ShootingStar) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                starTimingSummary(
+                    calledAt = star.calledAt,
+                    tier = star.tier,
+                    minimumArrival = star.minimumArrival,
+                    maximumArrival = star.maximumArrival,
+                )?.let { timing ->
+                    Text(
+                        timing,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = RuneGold,
+                    )
+                }
             }
         }
     }

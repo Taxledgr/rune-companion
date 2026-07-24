@@ -16,16 +16,22 @@ import io.github.taxledgr.runecompanion.MainActivity
 import io.github.taxledgr.runecompanion.R
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.util.reportAge
+import java.time.ZonedDateTime
 
 class StarAlertNotifier(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = StarAlertPreferences(appContext)
+
+    init {
+        createChannel()
+    }
 
     @SuppressLint("MissingPermission")
     fun notifyForMatches(stars: List<ShootingStar>) {
         synchronized(notificationLock) {
             val settings = preferences.load()
             if (!settings.enabled || !canPostNotifications()) return
+            if (settings.isQuietAt(ZonedDateTime.now().hour)) return
 
             val matchingStars = stars.filter(settings::matches)
             val currentIds = matchingStars.map { it.alertId() }.toSet()
