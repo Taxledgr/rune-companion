@@ -23,6 +23,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import io.github.taxledgr.runecompanion.MainActivity
 import io.github.taxledgr.runecompanion.R
+import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.util.reportAge
@@ -40,6 +41,7 @@ import kotlinx.coroutines.withContext
 
 class OverlayService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val alertNotifier by lazy { StarAlertNotifier(this) }
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var starContainer: LinearLayout? = null
@@ -163,6 +165,7 @@ class OverlayService : Service() {
                     feed.stars.size,
                 )
                 renderStars(feed.stars.take(MAX_OVERLAY_STARS))
+                alertNotifier.notifyForMatches(feed.stars)
             }
             .onFailure { throwable ->
                 statusText?.text = throwable.message ?: "Feed unavailable"

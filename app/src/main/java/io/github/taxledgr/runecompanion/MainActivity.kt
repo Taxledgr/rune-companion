@@ -30,19 +30,40 @@ class MainActivity : ComponentActivity() {
             RuneCompanionTheme {
                 val starViewModel: StarViewModel = viewModel()
                 val state = starViewModel.state.collectAsStateWithLifecycle()
+                val alertSettings = starViewModel.alertSettings.collectAsStateWithLifecycle()
                 val permission = overlayPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
-                val notificationPermission = rememberLauncherForActivityResult(
+                val overlayNotificationPermission = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { granted ->
                     if (granted) startOverlay(this)
                 }
+                val alertNotificationPermission = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted ->
+                    if (granted) starViewModel.setAlertsEnabled(true)
+                }
 
                 RuneCompanionApp(
                     state = state.value,
+                    alertSettings = alertSettings.value,
                     overlayPermissionGranted = permission.value,
                     overlayRunning = overlayRunning.value,
                     onRefresh = starViewModel::refresh,
+                    onAlertWorldsChanged = starViewModel::setAlertWorlds,
+                    onAlertTierToggled = starViewModel::toggleAlertTier,
+                    onClearAlertTiers = starViewModel::clearAlertTiers,
+                    onAlertsEnabledChanged = { enabled ->
+                        if (!enabled) {
+                            starViewModel.setAlertsEnabled(false)
+                        } else if (canPostNotifications()) {
+                            starViewModel.setAlertsEnabled(true)
+                        } else {
+                            alertNotificationPermission.launch(
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            )
+                        }
+                    },
                     onGrantOverlayPermission = ::openOverlaySettings,
                     onToggleOverlay = {
                         if (overlayRunning.value) {
@@ -56,7 +77,9 @@ class MainActivity : ComponentActivity() {
                                 Manifest.permission.POST_NOTIFICATIONS,
                             ) != PackageManager.PERMISSION_GRANTED
                         ) {
-                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            overlayNotificationPermission.launch(
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            )
                         } else {
                             startOverlay(this)
                         }
@@ -86,6 +109,13 @@ class MainActivity : ComponentActivity() {
             Intent(Intent.ACTION_VIEW, Uri.parse("https://map.starminers.site/")),
         )
     }
+
+    private fun canPostNotifications(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
 }
 
 private fun startOverlay(context: Context) {

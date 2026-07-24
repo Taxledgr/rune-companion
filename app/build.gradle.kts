@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+providers.gradleProperty("runeCompanionBuildDir").orNull?.let { externalBuildDirectory ->
+    layout.buildDirectory.set(file(externalBuildDirectory))
+}
+
 android {
     namespace = "io.github.taxledgr.runecompanion"
     compileSdk = 35
@@ -11,8 +15,8 @@ android {
         applicationId = "io.github.taxledgr.runecompanion"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -63,6 +67,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    // WorkManager 2.11+ uses Kotlin 2.1 metadata; 2.10 remains compatible with
+    // this project's Kotlin 1.9 and Compose compiler toolchain.
+    implementation("androidx.work:work-runtime-ktx:2.10.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")

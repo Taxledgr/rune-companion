@@ -9,5 +9,13 @@
         <item quantity="one">%1$d live report • drag title to move</item>
         <item quantity="other">%1$d live reports • drag title to move</item>
     </plurals>
+    <string name="star_alert_channel_name">Shooting Star matches</string>
+    <string name="star_alert_channel_description">Notifications for saved Shooting Star worlds and tiers</string>
+    <string name="star_alert_single_title">Tier %1$d • World %2$d</string>
+    <plurals name="star_alert_multiple_title">
+        <item quantity="one">%1$d matching Shooting Star</item>
+        <item quantity="other">%1$d matching Shooting Stars</item>
+    </plurals>
+    <string name="star_alert_summary_line">W%1$d T%2$d • %3$s • %4$s</string>
     <string name="stop">Stop</string>
 </resources>

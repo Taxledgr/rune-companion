@@ -14,9 +14,9 @@ Rune Companion is designed as a passive, user-controlled Android companion rathe
 
 ## Current Android behaviour
 
-The app fetches public Shooting Stars reports over HTTPS and displays them in its own activity or an Android application-overlay window. The user must explicitly grant the overlay permission and start the overlay. A persistent Android notification is shown while it is running.
+The app fetches public Shooting Stars reports over HTTPS and displays them in its own activity, Android notifications, or an Android application-overlay window. The user must explicitly grant notification and overlay permissions. The user must also start the overlay, and a persistent Android notification is shown while it is running.
 
-Version 0.1 does not request screen-capture permission and contains no OCR implementation.
+Saved alert filters and duplicate-notification identifiers remain on the device. Version 0.2 does not request screen-capture permission and contains no OCR implementation.
 
 ## References
 

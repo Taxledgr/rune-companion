@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
@@ -49,9 +50,14 @@ import io.github.taxledgr.runecompanion.util.reportAge
 @Composable
 fun RuneCompanionApp(
     state: StarUiState,
+    alertSettings: StarAlertSettings,
     overlayPermissionGranted: Boolean,
     overlayRunning: Boolean,
     onRefresh: () -> Unit,
+    onAlertWorldsChanged: (String) -> Unit,
+    onAlertTierToggled: (Int) -> Unit,
+    onClearAlertTiers: () -> Unit,
+    onAlertsEnabledChanged: (Boolean) -> Unit,
     onGrantOverlayPermission: () -> Unit,
     onToggleOverlay: () -> Unit,
     onOpenStarMiners: () -> Unit,
@@ -89,6 +95,15 @@ fun RuneCompanionApp(
                     running = overlayRunning,
                     onGrantPermission = onGrantOverlayPermission,
                     onToggle = onToggleOverlay,
+                )
+            }
+            item {
+                StarAlertSettingsCard(
+                    settings = alertSettings,
+                    onWorldsChanged = onAlertWorldsChanged,
+                    onTierToggled = onAlertTierToggled,
+                    onClearTiers = onClearAlertTiers,
+                    onEnabledChanged = onAlertsEnabledChanged,
                 )
             }
             item {
