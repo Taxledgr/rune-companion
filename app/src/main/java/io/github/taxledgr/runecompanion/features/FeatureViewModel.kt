@@ -402,6 +402,334 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         it.copy(loadouts = it.loadouts.filterNot { item -> item.id == id })
     }
 
+    fun saveBossReadinessPlan(bossId: String, notes: String) {
+        if (bossId.isBlank()) return
+        updateData { data ->
+            val existing = data.bossReadinessPlans.firstOrNull { it.bossId == bossId }
+            data.copy(
+                bossReadinessPlans = if (existing == null) {
+                    data.bossReadinessPlans + BossReadinessPlan(
+                        id = id(),
+                        bossId = bossId,
+                        notes = notes.trim(),
+                    )
+                } else {
+                    data.bossReadinessPlans.map {
+                        if (it.id == existing.id) it.copy(notes = notes.trim()) else it
+                    }
+                },
+            )
+        }
+    }
+
+    fun toggleBossReadinessCheck(planId: String, check: String) = updateData { data ->
+        data.copy(
+            bossReadinessPlans = data.bossReadinessPlans.map { plan ->
+                if (plan.id != planId) return@map plan
+                val checks = if (check in plan.confirmedChecks) {
+                    plan.confirmedChecks - check
+                } else {
+                    plan.confirmedChecks + check
+                }
+                plan.copy(confirmedChecks = checks)
+            },
+        )
+    }
+
+    fun toggleBossReadinessCheckForBoss(bossId: String, check: String) =
+        updateData { data ->
+            val existing = data.bossReadinessPlans.firstOrNull { it.bossId == bossId }
+            data.copy(
+                bossReadinessPlans = if (existing == null) {
+                    data.bossReadinessPlans + BossReadinessPlan(
+                        id = id(),
+                        bossId = bossId,
+                        confirmedChecks = setOf(check),
+                    )
+                } else {
+                    data.bossReadinessPlans.map { plan ->
+                        if (plan.id != existing.id) return@map plan
+                        val checks = if (check in plan.confirmedChecks) {
+                            plan.confirmedChecks - check
+                        } else {
+                            plan.confirmedChecks + check
+                        }
+                        plan.copy(confirmedChecks = checks)
+                    }
+                },
+            )
+        }
+
+    fun deleteBossReadinessPlan(id: String) = updateData {
+        it.copy(bossReadinessPlans = it.bossReadinessPlans.filterNot { plan -> plan.id == id })
+    }
+
+    fun addItineraryStop(title: String, region: String, teleport: String) {
+        if (title.isBlank()) return
+        updateData { data ->
+            val resolvedRegion = region.trim().ifBlank { ExpansionCatalog.guessRegion(title) }
+            data.copy(
+                itineraryStops = data.itineraryStops + ItineraryStop(
+                    id = id(),
+                    title = title.trim(),
+                    region = resolvedRegion,
+                    teleport = teleport.trim().ifBlank { bestConfiguredTeleport(data, resolvedRegion) },
+                ),
+            )
+        }
+    }
+
+    fun buildItineraryFromSaved() = updateData { data ->
+        val generated = buildList {
+            data.farmPatches.forEach { patch ->
+                val region = ExpansionCatalog.guessRegion(patch.patch)
+                add(
+                    ItineraryStop(
+                        id = id(),
+                        title = "${patch.patch} • ${patch.crop}",
+                        region = region,
+                        teleport = bestConfiguredTeleport(data, region),
+                    ),
+                )
+            }
+            data.routines.forEach { routine ->
+                val region = ExpansionCatalog.guessRegion(routine.title)
+                add(
+                    ItineraryStop(
+                        id = id(),
+                        title = routine.title,
+                        region = region,
+                        teleport = bestConfiguredTeleport(data, region),
+                    ),
+                )
+            }
+        }
+        val existingNames = data.itineraryStops.map { it.title.lowercase() }.toSet()
+        data.copy(
+            itineraryStops = optimiseStops(
+                data.itineraryStops + generated.filter { it.title.lowercase() !in existingNames },
+            ),
+        )
+    }
+
+    fun optimiseItinerary() = updateData {
+        it.copy(itineraryStops = optimiseStops(it.itineraryStops))
+    }
+
+    fun toggleItineraryStop(id: String) = updateData { data ->
+        data.copy(
+            itineraryStops = data.itineraryStops.map {
+                if (it.id == id) it.copy(completed = !it.completed) else it
+            },
+        )
+    }
+
+    fun deleteItineraryStop(id: String) = updateData {
+        it.copy(itineraryStops = it.itineraryStops.filterNot { stop -> stop.id == id })
+    }
+
+    fun addGearUpgrade(
+        style: String,
+        currentItem: String,
+        targetItem: PriceSearchItem,
+        budget: Long,
+        benefit: String,
+    ) {
+        viewModelScope.launch {
+            val price = latestUnitValue(targetItem)
+            updateData {
+                it.copy(
+                    gearUpgrades = it.gearUpgrades + GearUpgradePlan(
+                        id = id(),
+                        style = style.trim().ifBlank { "Any style" },
+                        currentItem = currentItem.trim(),
+                        targetItemId = targetItem.id,
+                        targetItemName = targetItem.name,
+                        targetPrice = price,
+                        budget = budget.coerceAtLeast(0),
+                        benefit = benefit.trim(),
+                    ),
+                )
+            }
+            _state.update { it.copy(priceSearchResults = emptyList()) }
+        }
+    }
+
+    fun toggleGearUpgradeObtained(id: String) = updateData { data ->
+        data.copy(
+            gearUpgrades = data.gearUpgrades.map {
+                if (it.id == id) it.copy(obtained = !it.obtained) else it
+            },
+        )
+    }
+
+    fun deleteGearUpgrade(id: String) = updateData {
+        it.copy(gearUpgrades = it.gearUpgrades.filterNot { plan -> plan.id == id })
+    }
+
+    fun addLootLedgerEntry(activity: String, item: PriceSearchItem, quantity: Int) {
+        if (activity.isBlank() || quantity <= 0) return
+        viewModelScope.launch {
+            val value = latestUnitValue(item) ?: 0
+            updateData {
+                it.copy(
+                    lootLedger = it.lootLedger + LootLedgerEntry(
+                        id = id(),
+                        activity = activity.trim(),
+                        itemId = item.id,
+                        itemName = item.name,
+                        quantity = quantity,
+                        unitValue = value,
+                        createdAtEpochMillis = System.currentTimeMillis(),
+                    ),
+                )
+            }
+            _state.update { it.copy(priceSearchResults = emptyList()) }
+        }
+    }
+
+    fun deleteLootLedgerEntry(id: String) = updateData {
+        it.copy(lootLedger = it.lootLedger.filterNot { entry -> entry.id == id })
+    }
+
+    fun addCounterGoal(activity: String, targetValue: Long) {
+        val data = _state.value.data
+        val profile = data.accounts.firstOrNull {
+            it.username.equals(data.selectedAccount, ignoreCase = true)
+        } ?: return
+        val current = profile.latest?.summary?.activities
+            ?.firstOrNull { it.name.equals(activity, ignoreCase = true) }
+            ?.score
+            ?.coerceAtLeast(0)
+            ?: return
+        if (targetValue <= current) return
+        updateData {
+            it.copy(
+                counterGoals = it.counterGoals + PublicCounterGoal(
+                    id = id(),
+                    account = profile.username,
+                    activity = activity,
+                    startValue = current,
+                    targetValue = targetValue,
+                ),
+            )
+        }
+    }
+
+    fun deleteCounterGoal(id: String) = updateData {
+        it.copy(counterGoals = it.counterGoals.filterNot { goal -> goal.id == id })
+    }
+
+    fun toggleProgress(id: String) = updateData { data ->
+        val completed = if (id in data.completedProgressIds) {
+            data.completedProgressIds - id
+        } else {
+            data.completedProgressIds + id
+        }
+        data.copy(completedProgressIds = completed)
+    }
+
+    fun addSupplyLockerItem(
+        item: PriceSearchItem,
+        quantity: Int,
+        lowAt: Int,
+    ) {
+        if (quantity < 0 || lowAt < 0) return
+        viewModelScope.launch {
+            val value = latestUnitValue(item) ?: 0
+            updateData { data ->
+                val existing = data.supplyLocker.firstOrNull { it.itemId == item.id }
+                data.copy(
+                    supplyLocker = if (existing == null) {
+                        data.supplyLocker + SupplyLockerItem(
+                            id(), item.id, item.name, quantity, lowAt, value,
+                        )
+                    } else {
+                        data.supplyLocker.map {
+                            if (it.id == existing.id) {
+                                it.copy(quantity = quantity, lowAt = lowAt, unitValue = value)
+                            } else {
+                                it
+                            }
+                        }
+                    },
+                )
+            }
+            _state.update { it.copy(priceSearchResults = emptyList()) }
+        }
+    }
+
+    fun adjustSupplyLockerItem(id: String, amount: Int) = updateData { data ->
+        data.copy(
+            supplyLocker = data.supplyLocker.map {
+                if (it.id == id) it.copy(quantity = (it.quantity + amount).coerceAtLeast(0)) else it
+            },
+        )
+    }
+
+    fun deleteSupplyLockerItem(id: String) = updateData {
+        it.copy(supplyLocker = it.supplyLocker.filterNot { item -> item.id == id })
+    }
+
+    fun loadMarketHistory(item: PriceSearchItem, timestep: String = "24h") {
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    marketItem = item,
+                    marketHistory = emptyList(),
+                    marketHistoryLoading = true,
+                    message = null,
+                    priceSearchResults = emptyList(),
+                )
+            }
+            runCatching { priceClient.history(item.id, timestep) }
+                .onSuccess { history ->
+                    _state.update {
+                        it.copy(marketHistory = history, marketHistoryLoading = false)
+                    }
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            marketHistoryLoading = false,
+                            message = error.message ?: "Price history unavailable",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun addWildernessRiskItem(
+        item: PriceSearchItem,
+        quantity: Int,
+        protected: Boolean,
+    ) {
+        if (quantity <= 0) return
+        viewModelScope.launch {
+            val value = latestUnitValue(item) ?: 0
+            updateData {
+                it.copy(
+                    wildernessRisk = it.wildernessRisk + WildernessRiskItem(
+                        id(), item.id, item.name, quantity, value, protected,
+                    ),
+                )
+            }
+            _state.update { it.copy(priceSearchResults = emptyList()) }
+        }
+    }
+
+    fun toggleWildernessRiskProtected(id: String) = updateData { data ->
+        data.copy(
+            wildernessRisk = data.wildernessRisk.map {
+                if (it.id == id) it.copy(protected = !it.protected) else it
+            },
+        )
+    }
+
+    fun deleteWildernessRiskItem(id: String) = updateData {
+        it.copy(wildernessRisk = it.wildernessRisk.filterNot { item -> item.id == id })
+    }
+
     fun addCustomTeleport(
         name: String,
         destination: String,
@@ -479,6 +807,52 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun id(): String = UUID.randomUUID().toString()
+
+    private suspend fun latestUnitValue(item: PriceSearchItem): Long? =
+        runCatching {
+            priceClient.latest(listOf(PriceWatchItem(item.id, item.name)))
+                .firstOrNull()
+                ?.let { it.high ?: it.low }
+        }.getOrNull()
+
+    private fun optimiseStops(stops: List<ItineraryStop>): List<ItineraryStop> {
+        val regionOrder = listOf(
+            "Misthalin",
+            "Asgarnia",
+            "Kandarin",
+            "Fremennik",
+            "Fossil Island",
+            "Kourend & Kebos",
+            "Morytania",
+            "Wilderness",
+            "Other",
+        )
+        return stops.sortedWith(
+            compareBy<ItineraryStop> { it.completed }
+                .thenBy {
+                    regionOrder.indexOf(it.region).takeIf { index -> index >= 0 }
+                        ?: regionOrder.size
+                }
+                .thenBy { it.title },
+        )
+    }
+
+    private fun bestConfiguredTeleport(data: FeatureData, region: String): String {
+        val profile = data.accounts.firstOrNull {
+            it.username.equals(data.selectedAccount, ignoreCase = true)
+        }
+        val magicLevel = profile?.magicLevel() ?: 1
+        return TeleportCatalog.all
+            .asSequence()
+            .filter { !it.dangerous }
+            .filter { option ->
+                option.region.contains(region, ignoreCase = true) ||
+                    region.contains(option.region, ignoreCase = true)
+            }
+            .firstOrNull { it.isAvailable(data.teleportProfile, magicLevel) }
+            ?.let { "${it.name} → ${it.destination}" }
+            ?: ExpansionCatalog.suggestedTeleport(region)
+    }
 
     private companion object {
         const val FOREGROUND_REFRESH_MILLIS = 10 * 60_000L

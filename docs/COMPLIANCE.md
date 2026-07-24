@@ -26,6 +26,13 @@ send movement or interaction input to the OSRS client.
 
 The app also reads Jagex's public world list and hiscores, the OSRS Wiki public prices API, and opens reference pages in the user's browser. Jagex's current world activity labels are used to identify PvP, Bounty Hunter, High Risk, Wilderness PK, Deadman, and similarly dangerous worlds. It never signs into a Jagex account or submits input to the OSRS client.
 
+Version 1.3 displays OSRS Wiki pages in an Android WebView owned by Rune
+Companion. Only `oldschool.runescape.wiki` pages stay inside that reader;
+external hosts are handed to Android. The app does not scrape, repackage, or
+silently mirror the Wiki. It preserves the original pages, attribution, revision
+history, links, and licence notices. Searches and pages load only when the player
+opens or searches for them.
+
 ## References
 
 - [Jagex third-party client guidelines](https://secure.runescape.com/m=news/third-party-client-guidelines?oldschool=1)

@@ -120,4 +120,36 @@ class FeatureModelsTest {
         assertEquals(15L, profile.activityGained("Vorkath", now - 24 * 60 * 60_000L))
         assertEquals(0L, profile.activityGained("Zulrah", now - 24 * 60 * 60_000L))
     }
+
+    @Test
+    fun publicCounterGoalUsesMatchingAccountAndClampsProgress() {
+        val summary = HiscoreSummary(
+            player = "Player",
+            skills = emptyList(),
+            activities = listOf(ActivityScore("Vorkath", 1, 175)),
+        )
+        val profile = AccountProfile(
+            username = "Player",
+            snapshots = listOf(StatSnapshot(1, summary)),
+        )
+        val goal = PublicCounterGoal("goal", "Player", "Vorkath", 100, 200)
+
+        assertEquals(175, goal.currentValue(profile))
+        assertEquals(0.75f, goal.progress(profile), 0.001f)
+        assertEquals(100, goal.currentValue(profile.copy(username = "Other")))
+    }
+
+    @Test
+    fun expansionValuesUseQuantityAndSafeMidpointFallbacks() {
+        assertEquals(
+            7_500,
+            LootLedgerEntry("1", "Boss", 1, "Drop", 3, 2_500, 0).totalValue,
+        )
+        assertEquals(
+            4_000,
+            SupplyLockerItem("2", 2, "Supply", 20, 5, 200).stockValue,
+        )
+        assertEquals(150L, MarketHistoryPoint(1, 200, 100, 0, 0).midpoint)
+        assertEquals(100L, MarketHistoryPoint(1, null, 100, 0, 0).midpoint)
+    }
 }

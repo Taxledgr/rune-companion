@@ -5,7 +5,25 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 1.2
+## Version 1.3
+
+- A first-class **Wiki** tab with full in-app OSRS Wiki search and article reading;
+  existing Wiki buttons now open inside Rune Companion instead of switching apps
+- Boss readiness plans combining public skill checks with manual quest, gear,
+  supply, mechanics, route, and loadout checks
+- Smart gameplay itineraries built from saved farming patches, routines, or
+  selectable travel presets, with safe regional ordering
+- GE-priced gear upgrade plans, itemised loot ledger, supply/charge locker, and
+  Wilderness risk estimates
+- Automatic public boss, raid, clue, and activity counter goals
+- Quest and Achievement Diary navigation with public skill readiness and manual
+  completion state
+- OSRS Wiki real-time GE history charts with price range, spread, and volume
+- Searchable monster/drop quick reference with full current Wiki articles in app
+- All ten expansion tools persist across in-place updates and encrypted backup
+- Version 1.3 uses Android version code 14 and updates version 1.2 in place
+
+See [the complete 1.3 release notes](docs/RELEASE_NOTES_1.3.md).
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
 - Expandable fastest-route guidance on every one of the 82 star cards, ranked
@@ -50,6 +68,19 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - No account login, ad SDK, analytics, or collection of personal information
 
 The persistent area and safe-world filters apply consistently to the main Stars list, floating overlay, and matching-star notifications.
+
+## In-app OSRS Wiki
+
+The **Wiki** bottom tab searches and displays the complete current
+[Old School RuneScape Wiki](https://oldschool.runescape.wiki/) inside Rune
+Companion. Wiki links from Shooting Star routes, clues, bosses, monsters,
+quests, diaries, death mechanics, and quick references use the same reader.
+
+Articles are loaded directly from the Wiki rather than copied into the APK.
+This keeps information current, avoids an enormous stale offline snapshot, and
+preserves the Wiki's authorship, attribution, links, history, and
+CC BY-NC-SA 3.0 notices. External non-Wiki links still ask Android to open the
+appropriate app.
 
 ## Shooting Star routes
 

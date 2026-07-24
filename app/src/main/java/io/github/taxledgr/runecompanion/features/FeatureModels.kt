@@ -114,6 +114,90 @@ data class LoadoutTemplate(
     val notes: String,
 )
 
+data class BossReadinessPlan(
+    val id: String,
+    val bossId: String,
+    val confirmedChecks: Set<String> = emptySet(),
+    val notes: String = "",
+)
+
+data class ItineraryStop(
+    val id: String,
+    val title: String,
+    val region: String,
+    val teleport: String,
+    val completed: Boolean = false,
+)
+
+data class GearUpgradePlan(
+    val id: String,
+    val style: String,
+    val currentItem: String,
+    val targetItemId: Int,
+    val targetItemName: String,
+    val targetPrice: Long?,
+    val budget: Long,
+    val benefit: String,
+    val obtained: Boolean = false,
+)
+
+data class LootLedgerEntry(
+    val id: String,
+    val activity: String,
+    val itemId: Int,
+    val itemName: String,
+    val quantity: Int,
+    val unitValue: Long,
+    val createdAtEpochMillis: Long,
+) {
+    val totalValue: Long get() = quantity.coerceAtLeast(0) * unitValue.coerceAtLeast(0)
+}
+
+data class PublicCounterGoal(
+    val id: String,
+    val account: String,
+    val activity: String,
+    val startValue: Long,
+    val targetValue: Long,
+)
+
+data class SupplyLockerItem(
+    val id: String,
+    val itemId: Int,
+    val itemName: String,
+    val quantity: Int,
+    val lowAt: Int,
+    val unitValue: Long,
+) {
+    val stockValue: Long get() = quantity.coerceAtLeast(0) * unitValue.coerceAtLeast(0)
+}
+
+data class WildernessRiskItem(
+    val id: String,
+    val itemId: Int,
+    val itemName: String,
+    val quantity: Int,
+    val unitValue: Long,
+    val protected: Boolean,
+) {
+    val totalValue: Long get() = quantity.coerceAtLeast(0) * unitValue.coerceAtLeast(0)
+}
+
+data class MarketHistoryPoint(
+    val timestampEpochSeconds: Long,
+    val averageHigh: Long?,
+    val averageLow: Long?,
+    val highVolume: Long,
+    val lowVolume: Long,
+) {
+    val midpoint: Long?
+        get() = when {
+            averageHigh != null && averageLow != null -> (averageHigh + averageLow) / 2
+            averageHigh != null -> averageHigh
+            else -> averageLow
+        }
+}
+
 data class CustomTeleport(
     val id: String,
     val name: String,
@@ -186,6 +270,14 @@ data class FeatureData(
     val routines: List<Routine> = emptyList(),
     val combatAchievements: List<CombatAchievementPlan> = emptyList(),
     val loadouts: List<LoadoutTemplate> = emptyList(),
+    val bossReadinessPlans: List<BossReadinessPlan> = emptyList(),
+    val itineraryStops: List<ItineraryStop> = emptyList(),
+    val gearUpgrades: List<GearUpgradePlan> = emptyList(),
+    val lootLedger: List<LootLedgerEntry> = emptyList(),
+    val counterGoals: List<PublicCounterGoal> = emptyList(),
+    val completedProgressIds: Set<String> = emptySet(),
+    val supplyLocker: List<SupplyLockerItem> = emptyList(),
+    val wildernessRisk: List<WildernessRiskItem> = emptyList(),
     val customTeleports: List<CustomTeleport> = emptyList(),
     val teleportProfile: TeleportCapabilityProfile = TeleportCapabilityProfile(),
 )
@@ -195,7 +287,27 @@ data class FeatureState(
     val loading: Boolean = false,
     val message: String? = null,
     val priceSearchResults: List<PriceSearchItem> = emptyList(),
+    val marketItem: PriceSearchItem? = null,
+    val marketHistory: List<MarketHistoryPoint> = emptyList(),
+    val marketHistoryLoading: Boolean = false,
 )
+
+fun PublicCounterGoal.currentValue(profile: AccountProfile?): Long =
+    profile
+        ?.takeIf { it.username.equals(account, ignoreCase = true) }
+        ?.latest
+        ?.summary
+        ?.activities
+        ?.firstOrNull { it.name.equals(activity, ignoreCase = true) }
+        ?.score
+        ?.coerceAtLeast(0)
+        ?: startValue
+
+fun PublicCounterGoal.progress(profile: AccountProfile?): Float {
+    val required = (targetValue - startValue).coerceAtLeast(1)
+    val gained = (currentValue(profile) - startValue).coerceAtLeast(0)
+    return (gained.toDouble() / required).coerceIn(0.0, 1.0).toFloat()
+}
 
 fun FeatureData.withTrackedPlayer(
     profile: TrackedPlayerProfile,

@@ -30,7 +30,7 @@ class WorldDirectoryClient {
             connection.readTimeout = 12_000
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/1.2 (github.com/Taxledgr/rune-companion)",
+                "Rune Companion/1.3 (github.com/Taxledgr/rune-companion)",
             )
             if (connection.responseCode !in 200..299) {
                 throw IOException("Official world list returned HTTP ${connection.responseCode}")

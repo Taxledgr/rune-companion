@@ -16,6 +16,18 @@ This roadmap favours passive reference tools, public data, and information the p
 - Saved player profile with automatic foreground/background hiscore snapshots and XP progress
 - Manual boss/raid timer and OSRS Wiki quick references
 
+## Delivered in version 1.3
+
+- Complete in-app OSRS Wiki reader and search tab
+- Boss readiness checker and public counter goalboard
+- Smart farming/routine/travel itinerary
+- Gear upgrade planner and itemised loot ledger
+- Quest and Achievement Diary navigator
+- Charges and supplies locker
+- GE market history and margin context
+- Wilderness risk planner
+- Monster and drop explorer
+
 ## Next improvements
 
 1. Import/export and device backup chosen by the user

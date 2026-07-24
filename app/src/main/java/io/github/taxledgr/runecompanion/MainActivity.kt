@@ -16,8 +16,14 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import io.github.taxledgr.runecompanion.overlay.OverlayService
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
+import io.github.taxledgr.runecompanion.ui.WikiReaderScreen
+import io.github.taxledgr.runecompanion.ui.isWikiUrl
 import io.github.taxledgr.runecompanion.ui.RuneCompanionApp
 import io.github.taxledgr.runecompanion.ui.RuneCompanionShell
 import io.github.taxledgr.runecompanion.ui.StarViewModel
@@ -45,6 +51,10 @@ class MainActivity : ComponentActivity() {
                 val permission = overlayPermission.collectAsStateWithLifecycle()
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
+                var activeWikiUrl by rememberSaveable { mutableStateOf<String?>(null) }
+                val openCompanionUrl: (String) -> Unit = { url ->
+                    if (isWikiUrl(url)) activeWikiUrl = url else openUrl(url)
+                }
                 val overlayNotificationPermission = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { granted ->
@@ -62,7 +72,14 @@ class MainActivity : ComponentActivity() {
                     notificationPermission.value = granted
                 }
 
-                RuneCompanionShell(
+                if (activeWikiUrl != null) {
+                    WikiReaderScreen(
+                        initialUrl = requireNotNull(activeWikiUrl),
+                        onClose = { activeWikiUrl = null },
+                        onOpenExternal = ::openUrl,
+                    )
+                } else {
+                    RuneCompanionShell(
                     toolkitState = toolkitState.value,
                     featureState = featureState.value,
                     featureViewModel = featureViewModel,
@@ -99,7 +116,7 @@ class MainActivity : ComponentActivity() {
                     onResetTrackedPlayerBaseline =
                         toolkitViewModel::resetTrackedPlayerBaseline,
                     onClearTrackedPlayer = toolkitViewModel::clearTrackedPlayer,
-                    onOpenUrl = ::openUrl,
+                    onOpenUrl = openCompanionUrl,
                     starsContent = {
                         RuneCompanionApp(
                             state = state.value,
@@ -153,10 +170,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onOpenStarMiners = ::openStarMiners,
-                            onOpenUrl = ::openUrl,
+                            onOpenUrl = openCompanionUrl,
                         )
                     },
-                )
+                    )
+                }
             }
         }
     }

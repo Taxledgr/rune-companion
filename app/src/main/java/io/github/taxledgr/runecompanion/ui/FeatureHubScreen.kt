@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -65,7 +66,7 @@ import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.max
 
-private enum class CompanionFeature(
+internal enum class CompanionFeature(
     val title: String,
     val summary: String,
     val group: String,
@@ -90,6 +91,16 @@ private enum class CompanionFeature(
     WIDGET("Android home widget", "One-tap launcher and tracked-player summary.", "Device"),
     BACKUP("Encrypted backup", "AES-GCM export/import protected by a passphrase.", "Device"),
     LOADOUTS("Shareable loadouts", "Save inventory, equipment, and setup notes.", "Activities"),
+    BOSS_READINESS("Boss readiness checker", "Check public stats, manual unlocks, supplies, routes, and loadouts.", "Planning"),
+    ITINERARY("Smart gameplay itinerary", "Combine farming, routines, supplies, and travel into one ordered run.", "Planning"),
+    GEAR_UPGRADES("Gear upgrade planner", "Price and track combat upgrades against a budget.", "Planning"),
+    LOOT_LEDGER("Itemised loot ledger", "Record priced drops and long-term activity value.", "Activities"),
+    COUNTER_GOALS("Public counter goals", "Track boss, raid, clue, and activity targets from hiscores.", "Progress"),
+    PROGRESS_NAVIGATOR("Quest & diary navigator", "Check public skill readiness and manual completion.", "Planning"),
+    SUPPLY_LOCKER("Charges & supplies locker", "Track tablets, charges, runes, ammunition, and doses.", "Planning"),
+    MARKET_HISTORY("GE market history", "Inspect price direction, spread, volume, and budget context.", "Economy"),
+    WILDERNESS_RISK("Wilderness risk planner", "Estimate carried, protected, and at-risk item value.", "Planning"),
+    MONSTER_EXPLORER("Monster & drop explorer", "Search weaknesses, locations, requirements, drops, and full Wiki pages.", "Reference"),
 }
 
 @Composable
@@ -104,8 +115,8 @@ fun FeatureHubScreen(
     onClearTrackedPlayer: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
-    var selected by remember { mutableStateOf<CompanionFeature?>(null) }
-    var settingsOpen by remember { mutableStateOf(false) }
+    var selected by rememberSaveable { mutableStateOf<CompanionFeature?>(null) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
 
     when {
         settingsOpen -> FeaturePage(title = "App settings", onBack = { settingsOpen = false }) {
@@ -143,6 +154,13 @@ private fun FeatureHub(
     onSettings: () -> Unit,
     onSelect: (CompanionFeature) -> Unit,
 ) {
+    var search by rememberSaveable { mutableStateOf("") }
+    val visibleFeatures = CompanionFeature.entries.filter {
+        search.isBlank() ||
+            it.title.contains(search, ignoreCase = true) ||
+            it.summary.contains(search, ignoreCase = true) ||
+            it.group.contains(search, ignoreCase = true)
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -151,7 +169,7 @@ private fun FeatureHub(
             Spacer(Modifier.height(10.dp))
             Text("Rune Companion", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "20 gameplay helpers. All game-state inputs are manual or use approved public data.",
+                "${CompanionFeature.entries.size} gameplay helpers. All game-state inputs are manual or use public data.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             state.message?.let {
@@ -170,8 +188,16 @@ private fun FeatureHub(
                     Text("Tracked player, background hiscores, and preferences")
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                label = { Text("Search ${CompanionFeature.entries.size} helpers") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
-        CompanionFeature.entries.groupBy { it.group }.forEach { (group, features) ->
+        visibleFeatures.groupBy { it.group }.forEach { (group, features) ->
             item {
                 Text(
                     group,
@@ -256,6 +282,17 @@ private fun FeatureContent(
 
         CompanionFeature.WIDGET -> WidgetFeature()
         CompanionFeature.BACKUP -> BackupFeature(viewModel)
+        CompanionFeature.BOSS_READINESS -> BossReadinessScreen(state, viewModel, onOpenUrl)
+        CompanionFeature.ITINERARY -> ItineraryScreen(state, viewModel)
+        CompanionFeature.GEAR_UPGRADES -> GearUpgradeScreen(state, viewModel, onOpenUrl)
+        CompanionFeature.LOOT_LEDGER -> LootLedgerScreen(state, viewModel)
+        CompanionFeature.COUNTER_GOALS -> CounterGoalsScreen(state, viewModel)
+        CompanionFeature.PROGRESS_NAVIGATOR ->
+            ProgressNavigatorScreen(state, viewModel, onOpenUrl)
+        CompanionFeature.SUPPLY_LOCKER -> SupplyLockerScreen(state, viewModel)
+        CompanionFeature.MARKET_HISTORY -> MarketHistoryScreen(state, viewModel)
+        CompanionFeature.WILDERNESS_RISK -> WildernessRiskScreen(state, viewModel, onOpenUrl)
+        CompanionFeature.MONSTER_EXPLORER -> MonsterExplorerScreen(onOpenUrl)
     }
 }
 
@@ -1415,7 +1452,7 @@ private fun ToggleRow(
 }
 
 @Composable
-private fun InfoCard(title: String, body: String) {
+internal fun InfoCard(title: String, body: String) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -1430,7 +1467,7 @@ private fun InfoCard(title: String, body: String) {
 }
 
 @Composable
-private fun RecordCard(title: String, detail: String, onDelete: () -> Unit) {
+internal fun RecordCard(title: String, detail: String, onDelete: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text(title, fontWeight = FontWeight.Bold)
@@ -1441,7 +1478,7 @@ private fun RecordCard(title: String, detail: String, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun EntryModeTabs(presetMode: Boolean, onChange: (Boolean) -> Unit) {
+internal fun EntryModeTabs(presetMode: Boolean, onChange: (Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(
             selected = presetMode,
@@ -1476,7 +1513,7 @@ private fun ChoiceChips(
 }
 
 @Composable
-private fun <T> CatalogPicker(
+internal fun <T> CatalogPicker(
     title: String,
     options: List<T>,
     category: (T) -> String,
@@ -1528,7 +1565,7 @@ private fun <T> CatalogPicker(
 }
 
 @Composable
-private fun Field(
+internal fun Field(
     value: String,
     onChange: (String) -> Unit,
     label: String,
@@ -1543,7 +1580,7 @@ private fun Field(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.titleMedium,
@@ -1552,7 +1589,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun FeatureList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+internal fun FeatureList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1560,7 +1597,7 @@ private fun FeatureList(content: androidx.compose.foundation.lazy.LazyListScope.
     )
 }
 
-private fun number(value: Long?): String =
+internal fun number(value: Long?): String =
     value?.let(NumberFormat.getIntegerInstance()::format) ?: "—"
 
 private fun skillCategory(skill: String): String = when (skill) {

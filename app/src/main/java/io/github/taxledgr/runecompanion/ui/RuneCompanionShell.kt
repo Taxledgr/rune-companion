@@ -11,8 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.features.FeatureState
@@ -23,6 +23,7 @@ private enum class CompanionTab(val label: String, val symbol: String) {
     TIMERS("Timers", "◷"),
     JOURNAL("Journal", "✓"),
     TOOLS("Tools", "⌁"),
+    WIKI("Wiki", "W"),
     MORE("More", "☰"),
 }
 
@@ -57,7 +58,7 @@ fun RuneCompanionShell(
     onOpenUrl: (String) -> Unit,
     starsContent: @Composable () -> Unit,
 ) {
-    var selectedTab by remember { mutableStateOf(CompanionTab.STARS) }
+    var selectedTab by rememberSaveable { mutableStateOf(CompanionTab.STARS) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -109,6 +110,7 @@ fun RuneCompanionShell(
                     onLookupHiscores = onLookupHiscores,
                     onOpenUrl = onOpenUrl,
                 )
+                CompanionTab.WIKI -> WikiPortalScreen(onOpenArticle = onOpenUrl)
                 CompanionTab.MORE -> FeatureHubScreen(
                     state = featureState,
                     viewModel = featureViewModel,

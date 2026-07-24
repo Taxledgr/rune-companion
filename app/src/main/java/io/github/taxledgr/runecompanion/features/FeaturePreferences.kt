@@ -63,6 +63,14 @@ class FeaturePreferences(context: Context) {
         put("routines", data.routines.jsonArray { it.toJson() })
         put("combatAchievements", data.combatAchievements.jsonArray { it.toJson() })
         put("loadouts", data.loadouts.jsonArray { it.toJson() })
+        put("bossReadinessPlans", data.bossReadinessPlans.jsonArray { it.toJson() })
+        put("itineraryStops", data.itineraryStops.jsonArray { it.toJson() })
+        put("gearUpgrades", data.gearUpgrades.jsonArray { it.toJson() })
+        put("lootLedger", data.lootLedger.jsonArray { it.toJson() })
+        put("counterGoals", data.counterGoals.jsonArray { it.toJson() })
+        put("completedProgressIds", JSONArray(data.completedProgressIds.toList()))
+        put("supplyLocker", data.supplyLocker.jsonArray { it.toJson() })
+        put("wildernessRisk", data.wildernessRisk.jsonArray { it.toJson() })
         put("customTeleports", data.customTeleports.jsonArray { it.toJson() })
         put("teleportProfile", JSONObject().apply {
             put("spellbooks", JSONArray(data.teleportProfile.spellbooks.map { it.name }))
@@ -73,6 +81,10 @@ class FeaturePreferences(context: Context) {
     }
 
     private fun decode(root: JSONObject): FeatureData {
+        val schemaVersion = root.optInt("schemaVersion", 1)
+        require(schemaVersion in 1..CURRENT_SCHEMA_VERSION) {
+            "Unsupported Rune Companion data version $schemaVersion"
+        }
         val accounts = root.array("accounts") { item ->
             AccountProfile(
                 username = item.optString("username"),
@@ -100,6 +112,14 @@ class FeaturePreferences(context: Context) {
             routines = root.array("routines") { it.toRoutine() },
             combatAchievements = root.array("combatAchievements") { it.toCombatAchievement() },
             loadouts = root.array("loadouts") { it.toLoadout() },
+            bossReadinessPlans = root.array("bossReadinessPlans") { it.toBossReadinessPlan() },
+            itineraryStops = root.array("itineraryStops") { it.toItineraryStop() },
+            gearUpgrades = root.array("gearUpgrades") { it.toGearUpgrade() },
+            lootLedger = root.array("lootLedger") { it.toLootLedgerEntry() },
+            counterGoals = root.array("counterGoals") { it.toCounterGoal() },
+            completedProgressIds = root.stringSet("completedProgressIds"),
+            supplyLocker = root.array("supplyLocker") { it.toSupplyLockerItem() },
+            wildernessRisk = root.array("wildernessRisk") { it.toWildernessRiskItem() },
             customTeleports = root.array("customTeleports") { it.toCustomTeleport() },
             teleportProfile = TeleportCapabilityProfile(
                 spellbooks = teleport?.stringSet("spellbooks")
@@ -245,6 +265,118 @@ class FeaturePreferences(context: Context) {
         optString("equipment"), optString("notes"),
     )
 
+    private fun BossReadinessPlan.toJson() = JSONObject()
+        .put("id", id)
+        .put("bossId", bossId)
+        .put("confirmedChecks", JSONArray(confirmedChecks.toList()))
+        .put("notes", notes)
+    private fun JSONObject.toBossReadinessPlan() = BossReadinessPlan(
+        optString("id"),
+        optString("bossId"),
+        stringSet("confirmedChecks"),
+        optString("notes"),
+    )
+
+    private fun ItineraryStop.toJson() = JSONObject()
+        .put("id", id)
+        .put("title", title)
+        .put("region", region)
+        .put("teleport", teleport)
+        .put("completed", completed)
+    private fun JSONObject.toItineraryStop() = ItineraryStop(
+        optString("id"),
+        optString("title"),
+        optString("region"),
+        optString("teleport"),
+        optBoolean("completed"),
+    )
+
+    private fun GearUpgradePlan.toJson() = JSONObject()
+        .put("id", id)
+        .put("style", style)
+        .put("currentItem", currentItem)
+        .put("targetItemId", targetItemId)
+        .put("targetItemName", targetItemName)
+        .put("targetPrice", targetPrice ?: JSONObject.NULL)
+        .put("budget", budget)
+        .put("benefit", benefit)
+        .put("obtained", obtained)
+    private fun JSONObject.toGearUpgrade() = GearUpgradePlan(
+        optString("id"),
+        optString("style"),
+        optString("currentItem"),
+        optInt("targetItemId"),
+        optString("targetItemName"),
+        optLongOrNull("targetPrice"),
+        optLong("budget"),
+        optString("benefit"),
+        optBoolean("obtained"),
+    )
+
+    private fun LootLedgerEntry.toJson() = JSONObject()
+        .put("id", id)
+        .put("activity", activity)
+        .put("itemId", itemId)
+        .put("itemName", itemName)
+        .put("quantity", quantity)
+        .put("unitValue", unitValue)
+        .put("createdAt", createdAtEpochMillis)
+    private fun JSONObject.toLootLedgerEntry() = LootLedgerEntry(
+        optString("id"),
+        optString("activity"),
+        optInt("itemId"),
+        optString("itemName"),
+        optInt("quantity"),
+        optLong("unitValue"),
+        optLong("createdAt"),
+    )
+
+    private fun PublicCounterGoal.toJson() = JSONObject()
+        .put("id", id)
+        .put("account", account)
+        .put("activity", activity)
+        .put("startValue", startValue)
+        .put("targetValue", targetValue)
+    private fun JSONObject.toCounterGoal() = PublicCounterGoal(
+        optString("id"),
+        optString("account"),
+        optString("activity"),
+        optLong("startValue"),
+        optLong("targetValue"),
+    )
+
+    private fun SupplyLockerItem.toJson() = JSONObject()
+        .put("id", id)
+        .put("itemId", itemId)
+        .put("itemName", itemName)
+        .put("quantity", quantity)
+        .put("lowAt", lowAt)
+        .put("unitValue", unitValue)
+    private fun JSONObject.toSupplyLockerItem() = SupplyLockerItem(
+        optString("id"),
+        optInt("itemId"),
+        optString("itemName"),
+        optInt("quantity"),
+        optInt("lowAt"),
+        optLong("unitValue"),
+    )
+
+    private fun WildernessRiskItem.toJson() = JSONObject()
+        .put("id", id)
+        .put("itemId", itemId)
+        .put("itemName", itemName)
+        .put("quantity", quantity)
+        .put("unitValue", unitValue)
+        .put("protected", protected)
+    private fun JSONObject.toWildernessRiskItem() = WildernessRiskItem(
+        optString("id"),
+        optInt("itemId"),
+        optString("itemName"),
+        optInt("quantity"),
+        optLong("unitValue"),
+        optBoolean("protected"),
+    )
+
     private fun CustomTeleport.toJson() = JSONObject().put("id", id).put("name", name)
         .put("destination", destination).put("region", region).put("dangerous", dangerous)
     private fun JSONObject.toCustomTeleport() = CustomTeleport(
@@ -281,6 +413,6 @@ class FeaturePreferences(context: Context) {
         const val PREFERENCES_NAME = "rune_companion_features"
         private const val KEY_DATA = "feature_data"
         private const val KEY_DATA_RECOVERY = "feature_data_recovery"
-        private const val CURRENT_SCHEMA_VERSION = 2
+        private const val CURRENT_SCHEMA_VERSION = 3
     }
 }
