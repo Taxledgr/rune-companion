@@ -843,11 +843,26 @@ private fun TeleportPlannerScreen(state: FeatureState, viewModel: FeatureViewMod
     var configure by remember { mutableStateOf(false) }
     var destination by remember { mutableStateOf("") }
     var safeOnly by remember { mutableStateOf(true) }
+    var customName by remember { mutableStateOf("") }
+    var customDestination by remember { mutableStateOf("") }
+    var customRegion by remember { mutableStateOf("") }
+    var customDangerous by remember { mutableStateOf(false) }
     val data = state.data
     val profile = data.teleportProfile
     val account = data.accounts.firstOrNull { it.username.equals(data.selectedAccount, true) }
     val magic = account?.magicLevel() ?: 1
-    val available = TeleportCatalog.all.map {
+    val customOptions = data.customTeleports.map {
+        io.github.taxledgr.runecompanion.features.TeleportOption(
+            id = "custom_${it.id}",
+            name = it.name,
+            destination = it.destination,
+            region = it.region,
+            kind = TeleportKind.ITEM,
+            dangerous = it.dangerous,
+            note = "Player-defined teleport",
+        )
+    }
+    val available = (TeleportCatalog.all + customOptions).map {
         if (it.id in setOf("spell_poh", "tab_house", "poh_access")) {
             it.copy(destination = "${profile.pohLocation} house portal")
         } else {
@@ -919,6 +934,49 @@ private fun TeleportPlannerScreen(state: FeatureState, viewModel: FeatureViewMod
                     detail = if (option.dangerous) "Wilderness destination" else option.region,
                     checked = key in profile.pohDestinations,
                     onToggle = { viewModel.togglePohDestination(key) },
+                )
+            }
+            item {
+                SectionTitle("Custom / newly released teleport")
+                Text(
+                    "Add an obscure charged item, quest reward, seasonal item, or future " +
+                        "teleport that is not in the built-in catalogue.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Field(customName, { customName = it }, "Teleport item / method")
+                Field(
+                    customDestination,
+                    { customDestination = it },
+                    "Destination or route steps",
+                )
+                Field(customRegion, { customRegion = it }, "Area / region")
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("Wilderness / dangerous")
+                    Spacer(Modifier.width(8.dp))
+                    Switch(
+                        checked = customDangerous,
+                        onCheckedChange = { customDangerous = it },
+                    )
+                }
+                Button(onClick = {
+                    viewModel.addCustomTeleport(
+                        customName,
+                        customDestination,
+                        customRegion,
+                        customDangerous,
+                    )
+                    customName = ""
+                    customDestination = ""
+                    customRegion = ""
+                    customDangerous = false
+                }) { Text("Add custom teleport") }
+            }
+            items(data.customTeleports) { custom ->
+                RecordCard(
+                    custom.name,
+                    "${custom.destination} • ${custom.region}" +
+                        if (custom.dangerous) " • DANGEROUS" else "",
+                    onDelete = { viewModel.deleteCustomTeleport(custom.id) },
                 )
             }
         } else {

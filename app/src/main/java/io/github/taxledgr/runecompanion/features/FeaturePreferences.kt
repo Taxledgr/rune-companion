@@ -44,6 +44,7 @@ class FeaturePreferences(context: Context) {
         put("routines", data.routines.jsonArray { it.toJson() })
         put("combatAchievements", data.combatAchievements.jsonArray { it.toJson() })
         put("loadouts", data.loadouts.jsonArray { it.toJson() })
+        put("customTeleports", data.customTeleports.jsonArray { it.toJson() })
         put("teleportProfile", JSONObject().apply {
             put("spellbooks", JSONArray(data.teleportProfile.spellbooks.map { it.name }))
             put("capabilities", JSONArray(data.teleportProfile.capabilities.toList()))
@@ -80,6 +81,7 @@ class FeaturePreferences(context: Context) {
             routines = root.array("routines") { it.toRoutine() },
             combatAchievements = root.array("combatAchievements") { it.toCombatAchievement() },
             loadouts = root.array("loadouts") { it.toLoadout() },
+            customTeleports = root.array("customTeleports") { it.toCustomTeleport() },
             teleportProfile = TeleportCapabilityProfile(
                 spellbooks = teleport?.stringSet("spellbooks")
                     ?.mapNotNull { name -> Spellbook.entries.firstOrNull { it.name == name } }
@@ -198,6 +200,13 @@ class FeaturePreferences(context: Context) {
     private fun JSONObject.toLoadout() = LoadoutTemplate(
         optString("id"), optString("name"), optString("inventory"),
         optString("equipment"), optString("notes"),
+    )
+
+    private fun CustomTeleport.toJson() = JSONObject().put("id", id).put("name", name)
+        .put("destination", destination).put("region", region).put("dangerous", dangerous)
+    private fun JSONObject.toCustomTeleport() = CustomTeleport(
+        optString("id"), optString("name"), optString("destination"),
+        optString("region"), optBoolean("dangerous"),
     )
 
     private fun <T> List<T>.jsonArray(block: (T) -> JSONObject) =

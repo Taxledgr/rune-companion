@@ -92,6 +92,7 @@ can actually use:
 - player-owned house access and house portal location;
 - mounted jewellery, fairy ring, spirit tree, obelisk, and other POH facilities; and
 - each configured portal chamber or Portal Nexus destination.
+- custom or newly released teleport items and their destinations.
 
 The selected account's public hiscores provide its Magic level. Jagex's hiscores
 do not expose inventory, bank, active spellbook, quests, diaries, item charges, or

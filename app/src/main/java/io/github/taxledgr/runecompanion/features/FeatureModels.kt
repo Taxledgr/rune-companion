@@ -112,6 +112,14 @@ data class LoadoutTemplate(
     val notes: String,
 )
 
+data class CustomTeleport(
+    val id: String,
+    val name: String,
+    val destination: String,
+    val region: String,
+    val dangerous: Boolean,
+)
+
 enum class Spellbook(val label: String) {
     STANDARD("Standard"),
     ANCIENT("Ancient"),
@@ -176,6 +184,7 @@ data class FeatureData(
     val routines: List<Routine> = emptyList(),
     val combatAchievements: List<CombatAchievementPlan> = emptyList(),
     val loadouts: List<LoadoutTemplate> = emptyList(),
+    val customTeleports: List<CustomTeleport> = emptyList(),
     val teleportProfile: TeleportCapabilityProfile = TeleportCapabilityProfile(),
 )
 

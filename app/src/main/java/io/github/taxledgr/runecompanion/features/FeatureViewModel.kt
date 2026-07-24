@@ -387,6 +387,30 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         it.copy(loadouts = it.loadouts.filterNot { item -> item.id == id })
     }
 
+    fun addCustomTeleport(
+        name: String,
+        destination: String,
+        region: String,
+        dangerous: Boolean,
+    ) {
+        if (name.isBlank() || destination.isBlank()) return
+        updateData {
+            it.copy(
+                customTeleports = it.customTeleports + CustomTeleport(
+                    id(),
+                    name.trim(),
+                    destination.trim(),
+                    region.trim().ifBlank { "Custom" },
+                    dangerous,
+                ),
+            )
+        }
+    }
+
+    fun deleteCustomTeleport(id: String) = updateData {
+        it.copy(customTeleports = it.customTeleports.filterNot { item -> item.id == id })
+    }
+
     fun toggleSpellbook(spellbook: Spellbook) = updateData { data ->
         val current = data.teleportProfile.spellbooks
         val updated = if (spellbook in current) current - spellbook else current + spellbook
