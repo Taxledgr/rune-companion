@@ -17,6 +17,8 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     private val priceClient = PriceClient()
     private val hiscoreClient = HiscoreClient()
     private val persisted = preferences.load()
+    @Volatile
+    private var appInForeground = false
     private val _state = MutableStateFlow(
         ToolkitState(
             reminders = persisted.reminders,
@@ -24,6 +26,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
             checklist = persisted.checklist,
             tripTimer = persisted.tripTimer,
             priceWatchlist = persisted.priceWatchlist,
+            trackedPlayer = persisted.trackedPlayer,
         ),
     )
     val state: StateFlow<ToolkitState> = _state.asStateFlow()
@@ -32,6 +35,11 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
         persisted.reminders
             .filter { it.endsAtEpochMillis > System.currentTimeMillis() }
             .forEach { ReminderScheduler.schedule(application, it) }
+        HiscoreRefreshScheduler.sync(
+            context = application,
+            enabled = persisted.trackedPlayer.autoRefreshEnabled &&
+                persisted.trackedPlayer.username.isNotBlank(),
+        )
         viewModelScope.launch {
             while (isActive) {
                 _state.update { it.copy(nowEpochMillis = System.currentTimeMillis()) }
@@ -39,6 +47,48 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         if (persisted.priceWatchlist.isNotEmpty()) refreshPrices()
+        if (
+            persisted.trackedPlayer.autoRefreshEnabled &&
+            persisted.trackedPlayer.username.isNotBlank()
+        ) {
+            refreshTrackedPlayer()
+        }
+        viewModelScope.launch {
+            while (isActive) {
+                delay(FOREGROUND_HISCORE_INTERVAL_MS)
+                val profile = _state.value.trackedPlayer
+                if (
+                    appInForeground &&
+                    profile.autoRefreshEnabled &&
+                    profile.username.isNotBlank()
+                ) {
+                    refreshTrackedPlayer()
+                }
+            }
+        }
+    }
+
+    fun setAppInForeground(inForeground: Boolean) {
+        appInForeground = inForeground
+        if (!inForeground) return
+
+        val storedProfile = preferences.load().trackedPlayer
+        val stateProfile = _state.value.trackedPlayer
+        if (
+            (storedProfile.lastUpdatedEpochMillis ?: 0) >
+            (stateProfile.lastUpdatedEpochMillis ?: 0)
+        ) {
+            _state.update { it.copy(trackedPlayer = storedProfile) }
+        }
+        val profile = _state.value.trackedPlayer
+        val lastUpdated = profile.lastUpdatedEpochMillis ?: 0
+        if (
+            profile.autoRefreshEnabled &&
+            profile.username.isNotBlank() &&
+            System.currentTimeMillis() - lastUpdated >= FOREGROUND_HISCORE_INTERVAL_MS
+        ) {
+            refreshTrackedPlayer()
+        }
     }
 
     fun addReminder(title: String, category: ReminderCategory, minutes: Int) {
@@ -237,6 +287,115 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun saveTrackedPlayer(username: String) {
+        val cleanUsername = username.trim().take(MAX_PLAYER_NAME_LENGTH)
+        if (cleanUsername.isBlank()) return
+        _state.update { state ->
+            val current = state.trackedPlayer
+            val samePlayer = current.username.equals(cleanUsername, ignoreCase = true)
+            state.copy(
+                trackedPlayer = if (samePlayer) {
+                    current.copy(username = cleanUsername, autoRefreshEnabled = true)
+                } else {
+                    TrackedPlayerProfile(
+                        username = cleanUsername,
+                        autoRefreshEnabled = true,
+                    )
+                },
+                trackedPlayerError = null,
+            )
+        }
+        persist()
+        HiscoreRefreshScheduler.sync(getApplication(), enabled = true)
+        refreshTrackedPlayer()
+    }
+
+    fun setTrackedPlayerAutoRefresh(enabled: Boolean) {
+        val canEnable = _state.value.trackedPlayer.username.isNotBlank()
+        _state.update { state ->
+            state.copy(
+                trackedPlayer = state.trackedPlayer.copy(
+                    autoRefreshEnabled = enabled && canEnable,
+                ),
+            )
+        }
+        persist()
+        HiscoreRefreshScheduler.sync(
+            context = getApplication(),
+            enabled = enabled && canEnable,
+        )
+        if (enabled && canEnable) refreshTrackedPlayer()
+    }
+
+    fun refreshTrackedPlayer() {
+        val profile = _state.value.trackedPlayer
+        if (
+            profile.username.isBlank() ||
+            _state.value.trackedPlayerLoading
+        ) {
+            return
+        }
+        viewModelScope.launch {
+            _state.update {
+                it.copy(trackedPlayerLoading = true, trackedPlayerError = null)
+            }
+            runCatching { hiscoreClient.lookup(profile.username) }
+                .onSuccess { result ->
+                    _state.update { state ->
+                        if (
+                            !state.trackedPlayer.username.equals(
+                                profile.username,
+                                ignoreCase = true,
+                            )
+                        ) {
+                            state.copy(trackedPlayerLoading = false)
+                        } else {
+                            state.copy(
+                                trackedPlayerLoading = false,
+                                trackedPlayer = state.trackedPlayer.copy(
+                                    baseline = state.trackedPlayer.baseline ?: result,
+                                    latest = result,
+                                    lastUpdatedEpochMillis = System.currentTimeMillis(),
+                                ),
+                            )
+                        }
+                    }
+                    persist()
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            trackedPlayerLoading = false,
+                            trackedPlayerError = error.message
+                                ?: "Could not refresh tracked-player hiscores",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun resetTrackedPlayerBaseline() {
+        _state.update { state ->
+            val latest = state.trackedPlayer.latest ?: return@update state
+            state.copy(
+                trackedPlayer = state.trackedPlayer.copy(baseline = latest),
+            )
+        }
+        persist()
+    }
+
+    fun clearTrackedPlayer() {
+        _state.update {
+            it.copy(
+                trackedPlayer = TrackedPlayerProfile(),
+                trackedPlayerLoading = false,
+                trackedPlayerError = null,
+            )
+        }
+        persist()
+        HiscoreRefreshScheduler.sync(getApplication(), enabled = false)
+    }
+
     private fun persist() {
         val state = _state.value
         preferences.save(
@@ -246,7 +405,13 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
                 checklist = state.checklist,
                 tripTimer = state.tripTimer,
                 priceWatchlist = state.priceWatchlist,
+                trackedPlayer = state.trackedPlayer,
             ),
         )
+    }
+
+    private companion object {
+        const val FOREGROUND_HISCORE_INTERVAL_MS = 10 * 60_000L
+        const val MAX_PLAYER_NAME_LENGTH = 12
     }
 }

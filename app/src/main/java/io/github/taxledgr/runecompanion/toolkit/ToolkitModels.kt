@@ -74,6 +74,14 @@ data class HiscoreSummary(
     val skills: List<SkillScore>,
 )
 
+data class TrackedPlayerProfile(
+    val username: String = "",
+    val autoRefreshEnabled: Boolean = false,
+    val baseline: HiscoreSummary? = null,
+    val latest: HiscoreSummary? = null,
+    val lastUpdatedEpochMillis: Long? = null,
+)
+
 data class ToolkitState(
     val reminders: List<CompanionReminder> = emptyList(),
     val slayerTask: SlayerTask? = null,
@@ -86,6 +94,9 @@ data class ToolkitState(
     val hiscore: HiscoreSummary? = null,
     val hiscoreLoading: Boolean = false,
     val hiscoreError: String? = null,
+    val trackedPlayer: TrackedPlayerProfile = TrackedPlayerProfile(),
+    val trackedPlayerLoading: Boolean = false,
+    val trackedPlayerError: String? = null,
     val nowEpochMillis: Long = System.currentTimeMillis(),
 )
 
@@ -95,7 +106,17 @@ data class PersistedToolkitData(
     val checklist: List<ChecklistEntry> = emptyList(),
     val tripTimer: TripTimer = TripTimer(),
     val priceWatchlist: List<PriceWatchItem> = emptyList(),
+    val trackedPlayer: TrackedPlayerProfile = TrackedPlayerProfile(),
 )
+
+fun HiscoreSummary.skill(name: String): SkillScore? =
+    skills.firstOrNull { it.name == name }
+
+fun HiscoreSummary.xpGainedSince(baseline: HiscoreSummary, skillName: String): Long {
+    val currentXp = skill(skillName)?.xp ?: return 0
+    val baselineXp = baseline.skill(skillName)?.xp ?: return 0
+    return (currentXp - baselineXp).coerceAtLeast(0)
+}
 
 fun xpForLevel(level: Int): Long {
     val safeLevel = level.coerceIn(1, 126)

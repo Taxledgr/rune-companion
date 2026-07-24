@@ -18,4 +18,19 @@ class ToolkitModelsTest {
         assertTrue(dropChancePercent(5_000, 5_000) in 63.1..63.3)
         assertTrue(attemptsForChance(50.0, 5_000) in 3_465..3_467)
     }
+
+    @Test
+    fun `tracked profile calculates xp gained from its baseline`() {
+        val baseline = HiscoreSummary(
+            player = "Player",
+            skills = listOf(SkillScore("Mining", 100, 80, 2_000_000)),
+        )
+        val latest = HiscoreSummary(
+            player = "Player",
+            skills = listOf(SkillScore("Mining", 90, 81, 2_125_000)),
+        )
+
+        assertEquals(125_000, latest.xpGainedSince(baseline, "Mining"))
+        assertEquals(0, latest.xpGainedSince(baseline, "Agility"))
+    }
 }

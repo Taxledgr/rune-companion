@@ -16,7 +16,7 @@ Rune Companion is designed as a passive, user-controlled Android companion rathe
 
 The app fetches public Shooting Stars reports over HTTPS and displays them in its own activity, Android notifications, or an Android application-overlay window. The user must explicitly grant notification and overlay permissions. The user must also start the overlay, and a persistent Android notification is shown while it is running.
 
-Saved alert filters, reminders, journal entries, loadouts, goals, stopwatches, and watchlists remain on the device. Price and hiscore lookups contain only the item query or player name the user deliberately enters. Version 0.3 does not request screen-capture or Accessibility Service permission and contains no OCR implementation.
+Saved alert filters, reminders, journal entries, loadouts, goals, stopwatches, watchlists, and hiscore snapshots remain on the device. Price and hiscore lookups contain only the item query or player name the user deliberately enters. Version 0.4 does not request screen-capture or Accessibility Service permission and contains no OCR implementation.
 
 The app also reads Jagex's public world list and hiscores, the OSRS Wiki public prices API, and opens reference pages in the user's browser. It never signs into a Jagex account or submits input to the OSRS client.
 

@@ -5,7 +5,7 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 0.3
+## Version 0.4
 
 - Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
 - Tier, members/F2P, official server-region, world, and location filters
@@ -20,6 +20,7 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 - Local quest, diary, collection-log goal, and gear/inventory loadout checklists
 - Grand Exchange item watchlist using the OSRS Wiki public prices API
 - Player lookup using Jagex's public OSRS hiscores
+- Saved player profile with automatic hiscore updates, local progress baseline, and per-skill XP gains
 - OSRS XP, cumulative drop-rate, and supply-cost calculators
 - Clue, fairy-ring, teleport, quest, diary, and boss reference links
 - No account login, ad SDK, analytics, or collection of personal information
@@ -64,6 +65,17 @@ Star depletion text is an estimate based on the reported tier and seven minutes 
 - Player levels, ranks, and XP come from the [official OSRS hiscores](https://secure.runescape.com/m=hiscore_oldschool/overall).
 
 All timers, journal entries, loadouts, goals, and watchlists are stored locally on the phone.
+
+## Automatic player stats
+
+Enter an OSRS display name under **Settings → Tracked player**. Rune Companion immediately loads public skill levels, ranks, and XP, then:
+
+- refreshes at most every 10 minutes while the app is open;
+- asks Android WorkManager to refresh every 15 minutes when the app is closed;
+- stores the latest and baseline snapshots locally; and
+- shows total and per-skill XP gained since the baseline.
+
+Android may delay background work because of battery optimisation or network conditions, and the official hiscores can lag behind recent in-game XP. No Jagex login, password, or game-client access is used.
 
 ## Build
 

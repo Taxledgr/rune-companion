@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,13 +27,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class MainActivity : ComponentActivity() {
     private val overlayPermission = MutableStateFlow(false)
     private val notificationPermission = MutableStateFlow(false)
+    private val toolkitViewModel: ToolkitViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             RuneCompanionTheme {
                 val starViewModel: StarViewModel = viewModel()
-                val toolkitViewModel: ToolkitViewModel = viewModel()
                 val state = starViewModel.state.collectAsStateWithLifecycle()
                 val alertSettings = starViewModel.alertSettings.collectAsStateWithLifecycle()
                 val toolkitState = toolkitViewModel.state.collectAsStateWithLifecycle()
@@ -84,6 +85,13 @@ class MainActivity : ComponentActivity() {
                     onRemovePriceWatchItem = toolkitViewModel::removePriceWatchItem,
                     onRefreshPrices = toolkitViewModel::refreshPrices,
                     onLookupHiscores = toolkitViewModel::lookupHiscores,
+                    onSaveTrackedPlayer = toolkitViewModel::saveTrackedPlayer,
+                    onTrackedPlayerAutoRefreshChanged =
+                        toolkitViewModel::setTrackedPlayerAutoRefresh,
+                    onRefreshTrackedPlayer = toolkitViewModel::refreshTrackedPlayer,
+                    onResetTrackedPlayerBaseline =
+                        toolkitViewModel::resetTrackedPlayerBaseline,
+                    onClearTrackedPlayer = toolkitViewModel::clearTrackedPlayer,
                     onOpenUrl = ::openUrl,
                     starsContent = {
                         RuneCompanionApp(
@@ -142,6 +150,16 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         overlayPermission.value = Settings.canDrawOverlays(this)
         notificationPermission.value = canPostNotifications()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        toolkitViewModel.setAppInForeground(true)
+    }
+
+    override fun onStop() {
+        toolkitViewModel.setAppInForeground(false)
+        super.onStop()
     }
 
     private fun openOverlaySettings() {

@@ -21,7 +21,7 @@ class HiscoreClient {
             connection.readTimeout = 12_000
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/0.3 (github.com/Taxledgr/rune-companion)",
+                "Rune Companion/0.4 (github.com/Taxledgr/rune-companion)",
             )
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_NOT_FOUND ->

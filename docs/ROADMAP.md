@@ -2,7 +2,7 @@
 
 This roadmap favours passive reference tools, public data, and information the player enters deliberately. Features that would inspect or interact with the live OSRS client require a fresh Jagex rules review before development.
 
-## Delivered in version 0.3
+## Delivered in versions 0.3–0.4
 
 - Favourite landing-location, world, and tier alerts
 - Arrival and estimated depletion windows
@@ -12,6 +12,7 @@ This roadmap favours passive reference tools, public data, and information the p
 - Farming, birdhouse, daily, and custom reminders
 - Slayer task counter; quest, diary, collection-goal, and loadout journal
 - GE price watchlist, official hiscore cards, XP/drop/supply calculators
+- Saved player profile with automatic foreground/background hiscore snapshots and XP progress
 - Manual boss/raid timer and OSRS Wiki quick references
 
 ## Next improvements
@@ -22,7 +23,7 @@ This roadmap favours passive reference tools, public data, and information the p
 4. Searchable clue-step and coordinate reference
 5. Skilling-goal calculators with items/actions remaining
 6. Star report history and feed-health status
-7. More detailed hiscore progress comparisons saved locally
+7. Boss/raid kill-count and personal-best history
 8. Migration to an official Star Miners API if one becomes available
 
 ## Explicitly out of scope

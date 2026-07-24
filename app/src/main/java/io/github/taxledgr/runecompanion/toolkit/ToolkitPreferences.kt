@@ -63,6 +63,7 @@ class ToolkitPreferences(context: Context) {
                 })
             }
         })
+        put("trackedPlayer", data.trackedPlayer.toJson())
     }
 
     private fun decode(root: JSONObject): PersistedToolkitData {
@@ -108,8 +109,59 @@ class ToolkitPreferences(context: Context) {
                 updatedAtEpochSeconds = item.optLongOrNull("updatedAt"),
             )
         }
-        return PersistedToolkitData(reminders, slayer, checklist, trip, watchlist)
+        val trackedPlayer = root.optJSONObject("trackedPlayer")?.toTrackedPlayer()
+            ?: TrackedPlayerProfile()
+        return PersistedToolkitData(
+            reminders = reminders,
+            slayerTask = slayer,
+            checklist = checklist,
+            tripTimer = trip,
+            priceWatchlist = watchlist,
+            trackedPlayer = trackedPlayer,
+        )
     }
+
+    private fun TrackedPlayerProfile.toJson() = JSONObject().apply {
+        put("username", username)
+        put("autoRefresh", autoRefreshEnabled)
+        put("baseline", baseline?.toJson() ?: JSONObject.NULL)
+        put("latest", latest?.toJson() ?: JSONObject.NULL)
+        put("lastUpdated", lastUpdatedEpochMillis ?: JSONObject.NULL)
+    }
+
+    private fun JSONObject.toTrackedPlayer() = TrackedPlayerProfile(
+        username = optString("username"),
+        autoRefreshEnabled = optBoolean("autoRefresh"),
+        baseline = optJSONObject("baseline")?.toHiscoreSummary(),
+        latest = optJSONObject("latest")?.toHiscoreSummary(),
+        lastUpdatedEpochMillis = optLongOrNull("lastUpdated"),
+    )
+
+    private fun HiscoreSummary.toJson() = JSONObject().apply {
+        put("player", player)
+        put("skills", JSONArray().apply {
+            skills.forEach { skill ->
+                put(JSONObject().apply {
+                    put("name", skill.name)
+                    put("rank", skill.rank)
+                    put("level", skill.level)
+                    put("xp", skill.xp)
+                })
+            }
+        })
+    }
+
+    private fun JSONObject.toHiscoreSummary() = HiscoreSummary(
+        player = optString("player"),
+        skills = optJSONArray("skills").mapObjects { item ->
+            SkillScore(
+                name = item.getString("name"),
+                rank = item.getInt("rank"),
+                level = item.getInt("level"),
+                xp = item.getLong("xp"),
+            )
+        },
+    )
 
     private inline fun <reified T : Enum<T>> JSONObject.enumOrDefault(
         key: String,

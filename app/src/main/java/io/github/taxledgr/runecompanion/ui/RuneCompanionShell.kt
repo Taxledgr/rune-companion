@@ -21,6 +21,7 @@ private enum class CompanionTab(val label: String, val symbol: String) {
     TIMERS("Timers", "◷"),
     JOURNAL("Journal", "✓"),
     TOOLS("Tools", "⌁"),
+    SETTINGS("Settings", "⚙"),
 }
 
 @Composable
@@ -44,6 +45,11 @@ fun RuneCompanionShell(
     onRemovePriceWatchItem: (Int) -> Unit,
     onRefreshPrices: () -> Unit,
     onLookupHiscores: (String) -> Unit,
+    onSaveTrackedPlayer: (String) -> Unit,
+    onTrackedPlayerAutoRefreshChanged: (Boolean) -> Unit,
+    onRefreshTrackedPlayer: () -> Unit,
+    onResetTrackedPlayerBaseline: () -> Unit,
+    onClearTrackedPlayer: () -> Unit,
     onOpenUrl: (String) -> Unit,
     starsContent: @Composable () -> Unit,
 ) {
@@ -98,6 +104,14 @@ fun RuneCompanionShell(
                     onRefreshPrices = onRefreshPrices,
                     onLookupHiscores = onLookupHiscores,
                     onOpenUrl = onOpenUrl,
+                )
+                CompanionTab.SETTINGS -> SettingsScreen(
+                    state = toolkitState,
+                    onSaveTrackedPlayer = onSaveTrackedPlayer,
+                    onAutoRefreshChanged = onTrackedPlayerAutoRefreshChanged,
+                    onRefreshTrackedPlayer = onRefreshTrackedPlayer,
+                    onResetTrackedPlayerBaseline = onResetTrackedPlayerBaseline,
+                    onClearTrackedPlayer = onClearTrackedPlayer,
                 )
             }
         }
