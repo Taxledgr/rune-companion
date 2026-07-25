@@ -1,6 +1,5 @@
 package io.github.taxledgr.runecompanion.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -76,7 +75,7 @@ fun RuneCompanionShell(
     val homeTab = personalizationSettings.effectiveStartTab
         .takeIf { it in personalizationSettings.navigationTabs }
         ?: personalizationSettings.navigationTabs.first()
-    BackHandler(enabled = showNavigation && selectedTab != homeTab) {
+    SafeBackHandler(enabled = showNavigation && selectedTab != homeTab) {
         selectedTab = homeTab
     }
     LaunchedEffect(personalizationSettings.navigationTabs, showNavigation) {
