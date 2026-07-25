@@ -56,6 +56,8 @@ import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.features.FeaturePreferences
 import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
+import io.github.taxledgr.runecompanion.features.ExpansionCatalog
+import io.github.taxledgr.runecompanion.features.QuestGuideCatalog
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
 import io.github.taxledgr.runecompanion.features.StarTravelPlanner
@@ -141,6 +143,7 @@ class OverlayService :
     private var overlaySettings = OverlaySettings()
     private var activeBadgeCount = 0
     private var expandedStarId: String? = null
+    private var editorQuestId: String? = null
     private var panelX = 0
     private var panelY = 0
     private var bubbleX: Int? = null
@@ -491,7 +494,27 @@ class OverlayService :
             } else {
                 visibleEntries.forEachIndexed { index, entry ->
                     if (index > 0) addView(contentDivider())
-                    addView(contentRow(entry))
+                    val quest = if (module == OverlayModule.QUESTS_DIARIES) {
+                        ExpansionCatalog.progress.filterNot {
+                            it.id in cachedFeatures.completedProgressIds
+                        }.getOrNull(index)
+                    } else {
+                        null
+                    }
+                    addView(
+                        contentRow(
+                            entry = entry,
+                            onClick = quest?.let { selected ->
+                                {
+                                    editorQuestId = selected.id.takeIf {
+                                        selected.category == "Quest" &&
+                                            QuestGuideCatalog.forQuest(it) != null
+                                    }
+                                    openEditor()
+                                }
+                            },
+                        ),
+                    )
                 }
                 if (content.entries.size > visibleEntries.size) {
                     addView(contentDivider())
@@ -554,10 +577,30 @@ class OverlayService :
         )
     }
 
-    private fun contentRow(entry: OverlayEntry): View =
+    private fun contentRow(
+        entry: OverlayEntry,
+        onClick: (() -> Unit)? = null,
+    ): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(5), 0, dp(5))
+            onClick?.let { action ->
+                isClickable = true
+                isFocusable = true
+                minimumHeight = dp(48)
+                contentDescription = "Open ${entry.title} step-by-step guide"
+                val selectableBackground = TypedValue()
+                if (
+                    theme.resolveAttribute(
+                        android.R.attr.selectableItemBackground,
+                        selectableBackground,
+                        true,
+                    )
+                ) {
+                    setBackgroundResource(selectableBackground.resourceId)
+                }
+                setOnClickListener { action() }
+            }
             addView(
                 textView(entry.title, 13f, entry.tone.colour()).apply {
                     setTypeface(typeface, Typeface.BOLD)
@@ -915,6 +958,7 @@ class OverlayService :
                     starViewModel = starViewModel,
                     initialOverlaySettings = overlaySettings,
                     initialPersonalizationSettings = personalizationPreferences.load(),
+                    initialQuestId = editorQuestId,
                     onOverlaySettingsChanged = { settings ->
                         overlaySettings = settings.normalized()
                         saveOverlaySettingsToActiveProfile()
@@ -961,6 +1005,7 @@ class OverlayService :
             root.removeView(editor)
         }
         editorView = null
+        editorQuestId = null
         toolkitViewModel.setAppInForeground(false)
         featureViewModel.setAppInForeground(false)
         starViewModel.setAppInForeground(false)

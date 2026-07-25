@@ -1,5 +1,13 @@
 # Rune Companion 1.10
 
+## 1.10.1 overlay quest navigation
+
+- Tapping a quest in the compact Quests & Diaries overlay now expands the
+  floating editor directly into that quest's step-by-step guide.
+- The compact row clearly says that it opens the guide, and remains accessible
+  as a minimum 48dp touch target.
+- Version `1.10.1` uses Android version code `27`.
+
 Rune Companion 1.10 is a workflow and usability refinement release.
 
 ## Quest companion

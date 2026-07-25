@@ -34,6 +34,7 @@ fun OverlayEditorContent(
     starViewModel: StarViewModel,
     initialOverlaySettings: OverlaySettings,
     initialPersonalizationSettings: PersonalizationSettings,
+    initialQuestId: String? = null,
     onOverlaySettingsChanged: (OverlaySettings) -> Unit,
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
     onClose: () -> Unit,
@@ -84,6 +85,7 @@ fun OverlayEditorContent(
                 personalizationSettings = personalizationSettings,
                 initialTab = editorRoute.tab,
                 initialFeatureId = editorRoute.featureId,
+                initialQuestId = initialQuestId,
                 showNavigation = false,
                 overlayEditorModule = module,
                 onPersonalizationChanged = { settings ->

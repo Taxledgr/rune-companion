@@ -5,6 +5,14 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.10.1
+
+- Quest rows in the compact **Quests & Diaries** overlay are now tappable.
+  Selecting a supported quest expands the floating editor directly into that
+  quest's saved inventory, equipment, teleport, and start-to-finish guide.
+- Version 1.10.1 uses Android version code 27 and updates version 1.10.0 in
+  place without deleting saved companion data.
+
 ## Version 1.10
 
 - Questing now opens a dedicated start-to-finish companion guide for every

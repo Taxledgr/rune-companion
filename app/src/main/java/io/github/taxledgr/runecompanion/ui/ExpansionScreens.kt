@@ -390,10 +390,13 @@ internal fun ProgressNavigatorScreen(
     state: FeatureState,
     viewModel: FeatureViewModel,
     onOpenUrl: (String) -> Unit,
+    initialSelectedQuestId: String? = null,
 ) {
     var category by remember { mutableStateOf("Quest") }
     var query by remember { mutableStateOf("") }
-    var selectedQuestId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedQuestId by rememberSaveable {
+        mutableStateOf(initialSelectedQuestId)
+    }
     val profile = selectedProfile(state)
     val selectedEntry = ExpansionCatalog.progress.firstOrNull { it.id == selectedQuestId }
     val selectedGuide = selectedQuestId?.let(QuestGuideCatalog::forQuest)

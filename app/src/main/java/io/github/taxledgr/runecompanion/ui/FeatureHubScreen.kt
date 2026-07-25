@@ -126,6 +126,7 @@ fun FeatureHubScreen(
     personalizationSettings: PersonalizationSettings,
     activityProfiles: ActivityProfileState,
     initialFeatureId: String?,
+    initialQuestId: String? = null,
     navigationRequest: String? = null,
     onNavigationRequestConsumed: () -> Unit = {},
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
@@ -238,6 +239,7 @@ fun FeatureHubScreen(
                     feature = selected!!,
                     state = state,
                     viewModel = viewModel,
+                    initialQuestId = initialQuestId,
                     onOpenUrl = onOpenUrl,
                 )
             }
@@ -460,6 +462,7 @@ private fun FeatureContent(
     feature: CompanionFeature,
     state: FeatureState,
     viewModel: FeatureViewModel,
+    initialQuestId: String? = null,
     onOpenUrl: (String) -> Unit,
 ) {
     when (feature) {
@@ -497,7 +500,12 @@ private fun FeatureContent(
         CompanionFeature.LOOT_LEDGER -> LootLedgerScreen(state, viewModel)
         CompanionFeature.COUNTER_GOALS -> CounterGoalsScreen(state, viewModel)
         CompanionFeature.PROGRESS_NAVIGATOR ->
-            ProgressNavigatorScreen(state, viewModel, onOpenUrl)
+            ProgressNavigatorScreen(
+                state = state,
+                viewModel = viewModel,
+                onOpenUrl = onOpenUrl,
+                initialSelectedQuestId = initialQuestId,
+            )
         CompanionFeature.SUPPLY_LOCKER -> SupplyLockerScreen(state, viewModel)
         CompanionFeature.MARKET_HISTORY -> MarketHistoryScreen(state, viewModel)
         CompanionFeature.WILDERNESS_RISK -> WildernessRiskScreen(state, viewModel, onOpenUrl)

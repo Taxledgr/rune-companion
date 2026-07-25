@@ -44,6 +44,7 @@ fun RuneCompanionShell(
     ),
     initialTab: AppTab = personalizationSettings.effectiveStartTab,
     initialFeatureId: String? = personalizationSettings.startFeatureId,
+    initialQuestId: String? = null,
     showNavigation: Boolean = true,
     overlayEditorModule: OverlayModule? = null,
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
@@ -215,6 +216,7 @@ fun RuneCompanionShell(
                         personalizationSettings = personalizationSettings,
                         activityProfiles = activityProfiles,
                         initialFeatureId = initialFeatureId,
+                        initialQuestId = initialQuestId,
                         navigationRequest = featureNavigationRequest,
                         onNavigationRequestConsumed = {
                             featureNavigationRequest = null

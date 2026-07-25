@@ -453,8 +453,13 @@ object OverlayContentBuilder {
                     }
                     OverlayEntry(
                         entry.name,
-                        "${entry.category} • $ready/${entry.skills.size} public skill checks ready • " +
-                            "prerequisites: ${entry.prerequisites}",
+                        if (entry.category == "Quest") {
+                            "Tap for step-by-step guide • $ready/${entry.skills.size} public " +
+                                "skill checks ready • prerequisites: ${entry.prerequisites}"
+                        } else {
+                            "${entry.category} • $ready/${entry.skills.size} public skill checks " +
+                                "ready • prerequisites: ${entry.prerequisites}"
+                        },
                         if (ready == entry.skills.size) OverlayTone.GOOD else OverlayTone.NORMAL,
                     )
                 },

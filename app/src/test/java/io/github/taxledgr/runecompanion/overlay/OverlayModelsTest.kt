@@ -130,4 +130,17 @@ class OverlayModelsTest {
         assertEquals(OverlayTone.GOOD, content.entries.first().tone)
         assertTrue(content.summary.startsWith("1 ready"))
     }
+
+    @Test
+    fun questOverlayRowsExplainThatTheyOpenTheGuide() {
+        val content = OverlayContentBuilder.build(
+            module = OverlayModule.QUESTS_DIARIES,
+            toolkit = PersistedToolkitData(),
+            features = FeatureData(),
+            stars = emptyList(),
+        )
+
+        assertEquals("Waterfall Quest", content.entries.first().title)
+        assertTrue(content.entries.first().detail.startsWith("Tap for step-by-step guide"))
+    }
 }
