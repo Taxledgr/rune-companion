@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.webkit.WebView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -40,6 +42,7 @@ import io.github.taxledgr.runecompanion.ui.RuneCompanionShell
 import io.github.taxledgr.runecompanion.ui.StarViewModel
 import io.github.taxledgr.runecompanion.ui.theme.RuneCompanionTheme
 import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
+import io.github.taxledgr.runecompanion.util.openTrustedExternalUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.UUID
 
@@ -65,6 +68,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            window.setHideOverlayWindows(true)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(false)
+        }
+        window.decorView.filterTouchesWhenObscured = true
+        WebView.setWebContentsDebuggingEnabled(false)
         overlaySettings.value = overlayPreferences.load()
         personalizationSettings.value = personalizationPreferences.load()
         activityProfiles.value = loadActivityProfiles()
@@ -312,7 +323,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openUrl(url: String) {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        if (!openTrustedExternalUrl(url)) {
+            Toast.makeText(
+                this,
+                "Rune Companion blocked an untrusted link.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
     }
 
     private fun openNotificationSettings() {

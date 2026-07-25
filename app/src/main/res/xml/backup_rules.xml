@@ -1,4 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <include domain="sharedpref" path="." />
+    <include
+        domain="sharedpref"
+        path="rune_companion_toolkit.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include
+        domain="sharedpref"
+        path="rune_companion_features.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include
+        domain="sharedpref"
+        path="rune_companion_overlay.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include
+        domain="sharedpref"
+        path="rune_companion_personalization.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include
+        domain="sharedpref"
+        path="rune_companion_activity_profiles.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include
+        domain="sharedpref"
+        path="shooting_star_alerts.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
+    <include
+        domain="sharedpref"
+        path="shooting_star_filters.xml"
+        requireFlags="clientSideEncryption|deviceToDeviceTransfer" />
 </full-backup-content>

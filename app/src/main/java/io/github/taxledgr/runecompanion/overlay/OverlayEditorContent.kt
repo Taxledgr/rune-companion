@@ -22,6 +22,8 @@ import io.github.taxledgr.runecompanion.ui.RuneCompanionApp
 import io.github.taxledgr.runecompanion.ui.RuneCompanionShell
 import io.github.taxledgr.runecompanion.ui.StarViewModel
 import io.github.taxledgr.runecompanion.ui.theme.RuneCompanionTheme
+import io.github.taxledgr.runecompanion.util.TrustedUrlPolicy
+import io.github.taxledgr.runecompanion.util.openTrustedExternalUrl
 
 @Composable
 fun OverlayEditorContent(
@@ -53,7 +55,14 @@ fun OverlayEditorContent(
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
     val openUrl: (String) -> Unit = { url ->
-        openIntent(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        val trustedUrl = TrustedUrlPolicy.normalizeHttpsUrl(
+            url,
+            TrustedUrlPolicy.externalHosts,
+        )
+        if (trustedUrl != null) {
+            onClose()
+            context.openTrustedExternalUrl(trustedUrl)
+        }
     }
     val openNotificationSettings = {
         openIntent(

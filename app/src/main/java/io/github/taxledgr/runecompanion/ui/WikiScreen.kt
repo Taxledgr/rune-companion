@@ -1,10 +1,6 @@
 package io.github.taxledgr.runecompanion.ui
 
-import android.annotation.SuppressLint
 import android.graphics.Color
-import android.net.Uri
-import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -34,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.TrustedUrlPolicy
+import io.github.taxledgr.runecompanion.util.TrustedWikiWebViewClient
+import io.github.taxledgr.runecompanion.util.applyPrivateWebSettings
 
 @Composable
 fun WikiPortalScreen(onOpenArticle: (String) -> Unit) {
@@ -138,7 +137,6 @@ fun WikiPortalScreen(onOpenArticle: (String) -> Unit) {
 }
 
 @Composable
-@SuppressLint("SetJavaScriptEnabled")
 fun WikiReaderScreen(
     initialUrl: String,
     onClose: () -> Unit,
@@ -199,34 +197,17 @@ fun WikiReaderScreen(
             factory = { context ->
                 WebView(context).apply {
                     setBackgroundColor(Color.rgb(18, 25, 30))
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
+                    applyPrivateWebSettings()
                     settings.loadsImagesAutomatically = true
-                    settings.allowFileAccess = false
-                    settings.allowContentAccess = false
-                    settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                    settings.safeBrowsingEnabled = true
                     settings.userAgentString =
                         "${settings.userAgentString} ${AppUserAgent.value}"
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView,
-                            request: WebResourceRequest,
-                        ): Boolean {
-                            val url = request.url.toString()
-                            return if (isWikiUrl(url)) {
-                                false
-                            } else {
-                                onOpenExternal(url)
-                                true
-                            }
-                        }
-
-                        override fun onPageFinished(view: WebView, url: String) {
+                    webViewClient = TrustedWikiWebViewClient(
+                        onExternalUrl = onOpenExternal,
+                        onPageFinishedCallback = { view, url ->
                             currentUrl = url
                             title = view.title?.removeSuffix(" - OSRS Wiki") ?: "OSRS Wiki"
-                        }
-                    }
+                        },
+                    )
                     loadUrl(currentUrl)
                     webView = this
                 }
@@ -249,12 +230,8 @@ fun WikiReaderScreen(
 }
 
 fun isWikiUrl(url: String): Boolean =
-    runCatching {
-        val host = Uri.parse(url).host.orEmpty().lowercase()
-        host == WIKI_HOST || host.endsWith(".$WIKI_HOST")
-    }.getOrDefault(false)
+    TrustedUrlPolicy.isWikiUrl(url)
 
 private fun normalizeWikiUrl(url: String): String =
-    if (isWikiUrl(url)) url else wikiUrl("Old School RuneScape Wiki")
-
-private const val WIKI_HOST = "oldschool.runescape.wiki"
+    TrustedUrlPolicy.normalizeHttpsUrl(url, setOf(TrustedUrlPolicy.WIKI_HOST))
+        ?: wikiUrl("Old School RuneScape Wiki")

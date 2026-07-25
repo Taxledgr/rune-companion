@@ -1,6 +1,5 @@
 package io.github.taxledgr.runecompanion.ui
 
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -59,6 +58,8 @@ import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
 import io.github.taxledgr.runecompanion.features.StarTravelPlanner
+import io.github.taxledgr.runecompanion.util.AllowlistedResourceWebViewClient
+import io.github.taxledgr.runecompanion.util.applyPrivateWebSettings
 import io.github.taxledgr.runecompanion.overlay.OverlayModule
 import io.github.taxledgr.runecompanion.overlay.OverlaySettings
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
@@ -869,15 +870,13 @@ private fun StarMapPreview(point: StarMapPoint) {
         factory = { context ->
             WebView(context).apply {
                 setBackgroundColor(android.graphics.Color.rgb(7, 19, 28))
-                settings.javaScriptEnabled = false
+                applyPrivateWebSettings()
                 settings.loadsImagesAutomatically = true
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                settings.safeBrowsingEnabled = true
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
-                webViewClient = WebViewClient()
+                webViewClient = AllowlistedResourceWebViewClient(
+                    setOf(StarMapCatalog.MAP_IMAGE_URL),
+                )
                 tag = point.locationName
                 loadDataWithBaseURL(
                     StarMapCatalog.MAP_BASE_URL,

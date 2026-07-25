@@ -32,10 +32,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -64,11 +66,14 @@ import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.toolkit.activity
 import io.github.taxledgr.runecompanion.toolkit.formatDuration
+import io.github.taxledgr.runecompanion.util.SensitiveClipboard
 import java.text.NumberFormat
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 internal enum class CompanionFeature(
     val title: String,
@@ -1493,31 +1498,49 @@ private fun BackupFeature(viewModel: FeatureViewModel) {
     var passphrase by remember { mutableStateOf("") }
     var payload by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
-    val clipboard = LocalClipboardManager.current
+    var busy by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     FeatureList {
         item {
             InfoCard(
                 "Encrypted local export",
-                "Backups include companion data and preferences. AES-256-GCM and a " +
-                    "passphrase-derived key protect the exported text. There is no password recovery.",
+                "New backups use AES-256-GCM, a stronger passphrase-derived key, strict " +
+                    "size checks, and tamper detection. Older RC1 backups remain importable. " +
+                    "There is no passphrase recovery.",
             )
             OutlinedTextField(
                 value = passphrase,
                 onValueChange = { passphrase = it },
-                label = { Text("Passphrase (8+ characters)") },
+                label = { Text("Passphrase (12–128 characters)") },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(onClick = {
-                runCatching { viewModel.exportBackup(passphrase) }
-                    .onSuccess {
-                        payload = it
-                        clipboard.setText(AnnotatedString(it))
-                        status = "Encrypted backup copied to clipboard"
+            Button(
+                enabled = !busy,
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        try {
+                            payload = viewModel.exportBackup(passphrase)
+                            SensitiveClipboard.copyTemporarily(
+                                context = context,
+                                label = "Encrypted Rune Companion backup",
+                                value = payload,
+                            )
+                            passphrase = ""
+                            status = "Encrypted backup copied securely for two minutes"
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Exception) {
+                            status = error.message ?: "Export failed"
+                        } finally {
+                            busy = false
+                        }
                     }
-                    .onFailure { status = it.message ?: "Export failed" }
-            }) { Text("Export & copy") }
+                },
+            ) { Text(if (busy) "Working…" else "Export & copy") }
             OutlinedTextField(
                 value = payload,
                 onValueChange = { payload = it },
@@ -1525,11 +1548,26 @@ private fun BackupFeature(viewModel: FeatureViewModel) {
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(onClick = {
-                runCatching { viewModel.importBackup(payload, passphrase) }
-                    .onSuccess { status = "Backup imported. Restart Rune Companion." }
-                    .onFailure { status = it.message ?: "Import failed" }
-            }) { Text("Import backup") }
+            Button(
+                enabled = !busy,
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        try {
+                            viewModel.importBackup(payload, passphrase)
+                            payload = ""
+                            passphrase = ""
+                            status = "Backup verified, imported, and reloaded"
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Exception) {
+                            status = error.message ?: "Import failed"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+            ) { Text(if (busy) "Working…" else "Import backup") }
             if (status.isNotBlank()) Text(status, color = MaterialTheme.colorScheme.primary)
         }
     }

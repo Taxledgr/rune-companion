@@ -1,9 +1,10 @@
 package io.github.taxledgr.runecompanion.data
 
 import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.TrustedUrlPolicy
+import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
+import io.github.taxledgr.runecompanion.util.readUtf8Response
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,8 +16,10 @@ class StarFeedClient(
     private val now: () -> Instant = Instant::now,
 ) {
     suspend fun fetch(): StarFeed = withContext(Dispatchers.IO) {
-        val requestUrl = URL("$endpoint?timestamp=${System.currentTimeMillis()}")
-        val connection = requestUrl.openConnection() as HttpURLConnection
+        val connection = openTrustedHttpsConnection(
+            "$endpoint?timestamp=${System.currentTimeMillis()}",
+            setOf(TrustedUrlPolicy.STAR_MINERS_HOST),
+        )
 
         try {
             connection.requestMethod = "GET"
@@ -33,7 +36,7 @@ class StarFeedClient(
                 throw IOException("Star Miners returned HTTP $responseCode")
             }
 
-            val json = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = connection.readUtf8Response(MAX_RESPONSE_BYTES)
             StarFeed(
                 stars = ShootingStarJsonParser.parse(json),
                 fetchedAt = now(),
@@ -41,6 +44,10 @@ class StarFeedClient(
         } finally {
             connection.disconnect()
         }
+    }
+
+    private companion object {
+        const val MAX_RESPONSE_BYTES = 4 * 1_024 * 1_024
     }
 }
 

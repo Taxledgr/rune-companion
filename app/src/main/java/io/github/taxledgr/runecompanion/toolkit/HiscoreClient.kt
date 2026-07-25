@@ -1,11 +1,12 @@
 package io.github.taxledgr.runecompanion.toolkit
 
 import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
+import io.github.taxledgr.runecompanion.util.readUtf8Response
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URLEncoder
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,7 +16,10 @@ class HiscoreClient {
         val cleanPlayer = player.trim()
         require(cleanPlayer.isNotBlank()) { "Enter an OSRS display name" }
         val encoded = URLEncoder.encode(cleanPlayer, StandardCharsets.UTF_8.name())
-        val connection = URL("$ENDPOINT?player=$encoded").openConnection() as HttpURLConnection
+        val connection = openTrustedHttpsConnection(
+            "$ENDPOINT?player=$encoded",
+            setOf(ENDPOINT_HOST),
+        )
         try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 12_000
@@ -30,7 +34,7 @@ class HiscoreClient {
                 !in 200..299 ->
                     throw IOException("Official hiscores returned HTTP ${connection.responseCode}")
             }
-            val lines = connection.inputStream.bufferedReader().use { it.readLines() }
+            val lines = connection.readUtf8Response(MAX_RESPONSE_BYTES).lineSequence().toList()
             parseHiscoreLines(cleanPlayer, lines)
         } finally {
             connection.disconnect()
@@ -38,8 +42,10 @@ class HiscoreClient {
     }
 
     private companion object {
+        const val ENDPOINT_HOST = "secure.runescape.com"
         const val ENDPOINT =
             "https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws"
+        const val MAX_RESPONSE_BYTES = 2 * 1_024 * 1_024
     }
 }
 

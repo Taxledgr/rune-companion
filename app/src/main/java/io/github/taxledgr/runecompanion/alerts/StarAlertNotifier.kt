@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -81,6 +82,14 @@ class StarAlertNotifier(context: Context) {
             .setContentIntent(openAppIntent())
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(appContext, ALERT_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_stat_rune)
+                    .setContentTitle("Rune Companion")
+                    .setContentText("A shooting-star update is available")
+                    .build(),
+            )
             .setAutoCancel(true)
             .setOnlyAlertOnce(false)
             .build()
@@ -114,6 +123,7 @@ class StarAlertNotifier(context: Context) {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = appContext.getString(R.string.star_alert_channel_description)
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
         )
     }

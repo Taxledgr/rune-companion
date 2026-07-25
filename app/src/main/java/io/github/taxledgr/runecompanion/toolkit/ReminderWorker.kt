@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -89,6 +90,14 @@ private class ReminderNotifier(context: Context) {
                 .setContentIntent(openIntent)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(
+                    NotificationCompat.Builder(appContext, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_stat_rune)
+                        .setContentTitle("Rune Companion")
+                        .setContentText("A timer is ready")
+                        .build(),
+                )
                 .setAutoCancel(true)
                 .build(),
         )
@@ -103,6 +112,7 @@ private class ReminderNotifier(context: Context) {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "Farming, birdhouse, daily, and custom timer alerts"
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
         )
     }

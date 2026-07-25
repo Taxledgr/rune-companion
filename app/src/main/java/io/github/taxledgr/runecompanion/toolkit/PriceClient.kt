@@ -2,9 +2,9 @@ package io.github.taxledgr.runecompanion.toolkit
 
 import io.github.taxledgr.runecompanion.features.MarketHistoryPoint
 import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
+import io.github.taxledgr.runecompanion.util.readUtf8Response
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -92,7 +92,10 @@ class PriceClient {
     }
 
     private fun request(endpoint: String): String {
-        val connection = URL(endpoint).openConnection() as HttpURLConnection
+        val connection = openTrustedHttpsConnection(
+            endpoint,
+            setOf(BASE_HOST),
+        )
         try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 12_000
@@ -105,7 +108,7 @@ class PriceClient {
             if (connection.responseCode !in 200..299) {
                 throw IOException("OSRS Wiki prices returned HTTP ${connection.responseCode}")
             }
-            return connection.inputStream.bufferedReader().use { it.readText() }
+            return connection.readUtf8Response(MAX_RESPONSE_BYTES)
         } finally {
             connection.disconnect()
         }
@@ -115,7 +118,9 @@ class PriceClient {
         if (!has(key) || isNull(key)) null else optLong(key)
 
     private companion object {
+        const val BASE_HOST = "prices.runescape.wiki"
         const val BASE_URL = "https://prices.runescape.wiki/api/v1/osrs"
+        const val MAX_RESPONSE_BYTES = 12 * 1_024 * 1_024
         const val MAX_SEARCH_RESULTS = 8
         val ALLOWED_TIMESTEPS = setOf("5m", "1h", "6h", "24h")
         val mappingMutex = Mutex()

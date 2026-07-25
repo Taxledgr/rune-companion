@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -88,7 +89,13 @@ class GeAlertWorker(
         val manager =
             applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "GE price targets", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(
+                CHANNEL_ID,
+                "GE price targets",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            },
         )
         val summary = alerts.take(3).joinToString("\n") {
             "${it.itemName}: ${NumberFormat.getIntegerInstance().format(it.latestPrice)} gp"
@@ -109,6 +116,14 @@ class GeAlertWorker(
                 .setContentText(summary)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
                 .setContentIntent(intent)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(
+                    NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_stat_rune)
+                        .setContentTitle("Rune Companion")
+                        .setContentText("A price update is available")
+                        .build(),
+                )
                 .setAutoCancel(true)
                 .build(),
         )

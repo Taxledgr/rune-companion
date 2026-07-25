@@ -1,9 +1,9 @@
 package io.github.taxledgr.runecompanion.data
 
 import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
+import io.github.taxledgr.runecompanion.util.readUtf8Response
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,7 +24,10 @@ fun isDangerousWorldActivity(activity: String): Boolean {
 
 class WorldDirectoryClient {
     suspend fun fetch(): List<WorldInfo> = withContext(Dispatchers.IO) {
-        val connection = URL(ENDPOINT).openConnection() as HttpURLConnection
+        val connection = openTrustedHttpsConnection(
+            ENDPOINT,
+            setOf(ENDPOINT_HOST),
+        )
         try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 12_000
@@ -36,7 +39,7 @@ class WorldDirectoryClient {
             if (connection.responseCode !in 200..299) {
                 throw IOException("Official world list returned HTTP ${connection.responseCode}")
             }
-            parse(connection.inputStream.bufferedReader().use { it.readText() })
+            parse(connection.readUtf8Response(MAX_RESPONSE_BYTES))
         } finally {
             connection.disconnect()
         }
@@ -69,7 +72,9 @@ class WorldDirectoryClient {
         }.distinctBy(WorldInfo::world).toList()
 
     private companion object {
+        const val ENDPOINT_HOST = "oldschool.runescape.com"
         const val ENDPOINT = "https://oldschool.runescape.com/slu?order=wlmAp"
+        const val MAX_RESPONSE_BYTES = 2 * 1_024 * 1_024
         val ROW_REGEX = Regex(
             """<tr class='server-list__row[^']*'>.*?id='slu-world-(?<world>\d+)'.*?server-list__row-cell--country\s+server-list__row-cell--(?<country>[A-Z]+)'.*?server-list__row-cell--type'>(?<type>Members|Free)</td>\s*<td class='server-list__row-cell'>(?<activity>.*?)</td>""",
             setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),

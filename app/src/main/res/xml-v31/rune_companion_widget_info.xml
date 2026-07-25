@@ -6,5 +6,7 @@
     android:minWidth="220dp"
     android:previewImage="@drawable/ic_rune_companion"
     android:resizeMode="horizontal"
+    android:targetCellHeight="1"
+    android:targetCellWidth="3"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

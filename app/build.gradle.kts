@@ -3,6 +3,25 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val releaseKeystoreFile = providers.environmentVariable(
+    "RUNE_COMPANION_KEYSTORE_FILE",
+).orNull
+val releaseKeystorePassword = providers.environmentVariable(
+    "RUNE_COMPANION_KEYSTORE_PASSWORD",
+).orNull
+val releaseKeyAlias = providers.environmentVariable(
+    "RUNE_COMPANION_KEY_ALIAS",
+).orNull
+val releaseKeyPassword = providers.environmentVariable(
+    "RUNE_COMPANION_KEY_PASSWORD",
+).orNull
+val releaseSigningAvailable = listOf(
+    releaseKeystoreFile,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 providers.gradleProperty("runeCompanionBuildDir").orNull?.let { externalBuildDirectory ->
     layout.buildDirectory.set(file(externalBuildDirectory))
 }
@@ -13,10 +32,10 @@ android {
 
     defaultConfig {
         applicationId = "io.github.taxledgr.runecompanion"
-        minSdk = 28
+        minSdk = 30
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.8.0"
+        versionCode = 22
+        versionName = "1.8.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -24,9 +43,27 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseSigningAvailable) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseKeystoreFile))
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -57,6 +94,11 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+    }
 }
 
 dependencies {
@@ -82,4 +124,38 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+}
+
+tasks.register("securityCheck") {
+    group = "verification"
+    description = "Checks security-critical Android configuration and forbidden APIs."
+
+    val manifest = file("src/main/AndroidManifest.xml")
+    val backupRules = file("src/main/res/xml/backup_rules.xml")
+    val extractionRules = file("src/main/res/xml/data_extraction_rules.xml")
+    val sources = fileTree("src/main/java") { include("**/*.kt") }
+    inputs.files(manifest, backupRules, extractionRules, sources)
+
+    doLast {
+        val manifestText = manifest.readText()
+        check("""android:usesCleartextTraffic="false"""" in manifestText)
+        check("""android:networkSecurityConfig="@xml/network_security_config"""" in manifestText)
+        check("""android:name=".overlay.OverlayService"""" in manifestText)
+        check("""android:exported="false"""" in manifestText)
+        check("""android.permission.HIDE_OVERLAY_WINDOWS""" in manifestText)
+        check("""path="."""" !in backupRules.readText())
+        check("""path="."""" !in extractionRules.readText())
+
+        val sourceText = sources.files.joinToString("\n") { it.readText() }
+        listOf(
+            "javaScriptEnabled = true",
+            "addJavascriptInterface(",
+            "HostnameVerifier",
+            "X509TrustManager",
+        ).forEach { forbidden ->
+            check(forbidden !in sourceText) {
+                "Forbidden security-sensitive API found: $forbidden"
+            }
+        }
+    }
 }

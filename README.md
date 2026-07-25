@@ -5,6 +5,25 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.8.1
+
+- HTTPS destinations are restricted to exact trusted hosts, redirects and
+  cleartext traffic are rejected, and downloaded responses are size-limited.
+- The in-app Wiki no longer runs JavaScript and cannot access local files,
+  content providers, mixed HTTP content, third-party cookies, or WebView
+  debugging.
+- Android backups now include only Rune Companion preference files and require
+  encrypted cloud backup. Manual exports use a stronger authenticated RC2
+  format while retaining RC1 import compatibility.
+- Overlay entry points remain private to Rune Companion. Obscured touches,
+  external overlays while the app is open, recents screenshots, and detailed
+  lock-screen notification content are blocked.
+- Release builds are minified and support protected environment-based signing.
+  CI now checks security invariants, dependencies, release lint, and CodeQL.
+- Version 1.8.1 uses Android version code 22 and updates the existing
+  debug-signed installation in place without deleting accounts, profiles,
+  filters, routes, timers, or journals.
+
 ## Version 1.8
 
 - **Activity Profiles** save complete reusable setups for Shooting Stars,
@@ -296,12 +315,13 @@ Requirements:
 - Android Studio with Android SDK 35
 - JDK 17 or newer
 
-Open the repository in Android Studio, let Gradle sync, and run the `app` configuration on an Android 9.0 (API 28) or newer device.
+Open the repository in Android Studio, let Gradle sync, and run the `app`
+configuration on an Android 11 (API 30) or newer device.
 
 From a terminal:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+.\gradlew.bat testDebugUnitTest securityCheck lintDebug lintRelease assembleDebug assembleRelease
 ```
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
@@ -347,6 +367,13 @@ remains the most portable backup.
 ### Without ADB
 
 Copy the versioned APK to the phone, open it from the Files app, and allow **Install unknown apps** for that Files app when Android asks. Leave Play Protect enabled. After installation, grant notifications and **Display over other apps** only if you want alerts and the floating panel.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for private vulnerability reporting and release
+signing requirements, and
+[docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md) for the app's trust
+boundaries and privacy model. Never commit a signing keystore or its passwords.
 
 ## Permissions
 

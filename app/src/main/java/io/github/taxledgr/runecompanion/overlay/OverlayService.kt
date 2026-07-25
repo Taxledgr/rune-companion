@@ -2,6 +2,7 @@ package io.github.taxledgr.runecompanion.overlay
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -21,7 +22,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -67,6 +67,8 @@ import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
 import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
 import io.github.taxledgr.runecompanion.ui.StarViewModel
 import io.github.taxledgr.runecompanion.util.reportAge
+import io.github.taxledgr.runecompanion.util.AllowlistedResourceWebViewClient
+import io.github.taxledgr.runecompanion.util.applyPrivateWebSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -703,15 +705,13 @@ class OverlayService :
 
     private fun mapPreview(point: StarMapPoint) = WebView(this).apply {
         setBackgroundColor(Color.rgb(7, 19, 28))
-        settings.javaScriptEnabled = false
+        applyPrivateWebSettings()
         settings.loadsImagesAutomatically = true
-        settings.allowFileAccess = false
-        settings.allowContentAccess = false
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-        settings.safeBrowsingEnabled = true
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
-        webViewClient = WebViewClient()
+        webViewClient = AllowlistedResourceWebViewClient(
+            setOf(StarMapCatalog.MAP_IMAGE_URL),
+        )
         loadDataWithBaseURL(
             StarMapCatalog.MAP_BASE_URL,
             StarMapCatalog.previewHtml(point),
@@ -1245,18 +1245,8 @@ class OverlayService :
         overlayView?.let { windowManager.updateViewLayout(it, params) }
     }
 
-    @Suppress("DEPRECATION")
     private fun displayBounds(): android.graphics.Rect =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics.bounds
-        } else {
-            android.graphics.Rect(
-                0,
-                0,
-                resources.displayMetrics.widthPixels,
-                resources.displayMetrics.heightPixels,
-            )
-        }
+        windowManager.currentWindowMetrics.bounds
 
     private fun panelBackground() = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
@@ -1310,6 +1300,7 @@ class OverlayService :
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .addAction(0, getString(R.string.stop), stopIntent)
             .build()
 
@@ -1333,7 +1324,9 @@ class OverlayService :
                 CHANNEL_ID,
                 getString(R.string.overlay_channel_name),
                 NotificationManager.IMPORTANCE_LOW,
-            ),
+            ).apply {
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            },
         )
     }
 

@@ -11,6 +11,7 @@ import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
 import io.github.taxledgr.runecompanion.widget.RuneCompanionWidget
 import java.time.LocalDate
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FeatureViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = FeaturePreferences(application)
@@ -812,10 +814,15 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         data.copy(teleportProfile = data.teleportProfile.copy(pohDestinations = updated))
     }
 
-    fun exportBackup(passphrase: String): String = backupManager.exportEncrypted(passphrase)
+    suspend fun exportBackup(passphrase: String): String =
+        withContext(Dispatchers.Default) {
+            backupManager.exportEncrypted(passphrase)
+        }
 
-    fun importBackup(payload: String, passphrase: String) {
-        backupManager.importEncrypted(payload, passphrase)
+    suspend fun importBackup(payload: String, passphrase: String) {
+        withContext(Dispatchers.IO) {
+            backupManager.importEncrypted(payload, passphrase)
+        }
         val restored = preferences.load()
         val restoreGeneration = _state.value.restoreGeneration + 1
         _state.value = FeatureState(
