@@ -13,3 +13,4 @@ app/build/
 *.jks
 *.keystore
 keystore.properties
+local-update-backups/

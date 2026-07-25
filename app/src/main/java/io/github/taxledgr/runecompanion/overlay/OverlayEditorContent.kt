@@ -72,7 +72,7 @@ fun OverlayEditorContent(
         )
     }
 
-    RuneCompanionTheme {
+    RuneCompanionTheme(layoutDensity = personalizationSettings.overlayDensity) {
         OverlayEditorFrame(
             sectionLabel = module.label,
             onClose = onClose,
@@ -85,6 +85,7 @@ fun OverlayEditorContent(
                 initialTab = editorRoute.tab,
                 initialFeatureId = editorRoute.featureId,
                 showNavigation = false,
+                overlayEditorModule = module,
                 onPersonalizationChanged = { settings ->
                     val normalized = settings.normalized()
                     personalizationSettings = normalized
@@ -115,6 +116,8 @@ fun OverlayEditorContent(
                 onResetTrackedPlayerBaseline =
                     toolkitViewModel::resetTrackedPlayerBaseline,
                 onClearTrackedPlayer = toolkitViewModel::clearTrackedPlayer,
+                onUndoToolkitChange = toolkitViewModel::undoLastChange,
+                onDismissToolkitUndo = toolkitViewModel::dismissUndo,
                 onOpenUrl = openUrl,
                 starsContent = {
                     RuneCompanionApp(
@@ -181,6 +184,7 @@ fun OverlayEditorContent(
                         },
                         onOpenStarMiners = { openUrl("https://map.starminers.site/") },
                         onOpenUrl = openUrl,
+                        editorMode = true,
                     )
                 },
             )

@@ -42,6 +42,7 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     private var appInForeground = false
     private var initialized = false
     private var dataVersion = 0L
+    private var lastUndoData: FeatureData? = null
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -148,7 +149,7 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
                 runCatching { hiscoreClient.lookup(username) }
                     .onSuccess { summary ->
                         val snapshot = StatSnapshot(System.currentTimeMillis(), summary)
-                        updateData { data ->
+                        updateData(recordUndo = false) { data ->
                             data.copy(accounts = data.accounts.map { account ->
                                 if (!account.username.equals(username, true)) {
                                     account
@@ -277,7 +278,7 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
             runCatching { priceClient.latest(items) }
                 .onSuccess { latest ->
                     val byId = latest.associateBy { it.id }
-                    updateData {
+                    updateData(recordUndo = false) {
                         it.copy(
                             geAlerts = it.geAlerts.map { alert ->
                                 val price = byId[alert.itemId]?.high
@@ -864,6 +865,26 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 
+    fun undoLastChange() {
+        val previous = lastUndoData ?: return
+        val current = _state.value.data
+        lastUndoData = current
+        _state.update {
+            it.copy(
+                data = previous,
+                undoLabel = "Previous change restored",
+            )
+        }
+        dataVersion += 1
+        persistenceQueue.trySend(previous)
+        syncSchedulers(previous)
+    }
+
+    fun dismissUndo() {
+        lastUndoData = null
+        _state.update { it.copy(undoLabel = null) }
+    }
+
     fun reloadFromDisk() {
         diskReloadJob?.cancel()
         val versionAtStart = dataVersion
@@ -885,14 +906,25 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         return migrated
     }
 
-    private fun updateData(block: (FeatureData) -> FeatureData) {
+    private fun updateData(
+        recordUndo: Boolean = true,
+        block: (FeatureData) -> FeatureData,
+    ) {
         if (!initialized) {
             pendingMutations += block
             return
         }
-        var updated = _state.value.data
+        val current = _state.value.data
+        val updated = block(current)
+        if (updated == current) return
+        if (recordUndo) {
+            lastUndoData = current
+        }
         _state.update { state ->
-            state.copy(data = block(state.data).also { updated = it })
+            state.copy(
+                data = updated,
+                undoLabel = if (recordUndo) "Last change saved" else state.undoLabel,
+            )
         }
         dataVersion += 1
         persistenceQueue.trySend(updated)
@@ -904,7 +936,7 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
                 it.username.equals(candidate, ignoreCase = true)
             }
         }
-        updateData { it.copy(selectedAccount = selected) }
+        updateData(recordUndo = false) { it.copy(selectedAccount = selected) }
     }
 
     private fun syncSchedulers(data: FeatureData) {

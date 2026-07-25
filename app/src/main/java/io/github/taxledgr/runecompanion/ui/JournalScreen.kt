@@ -36,6 +36,13 @@ import io.github.taxledgr.runecompanion.toolkit.ChecklistCategory
 import io.github.taxledgr.runecompanion.toolkit.ChecklistEntry
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
+
+enum class JournalEditorFocus {
+    ALL,
+    SLAYER,
+    CHECKLIST,
+}
 
 @Composable
 fun JournalScreen(
@@ -46,21 +53,35 @@ fun JournalScreen(
     onAddChecklistEntry: (String, ChecklistCategory) -> Unit,
     onToggleChecklistEntry: (String) -> Unit,
     onDeleteChecklistEntry: (String) -> Unit,
+    focus: JournalEditorFocus = JournalEditorFocus.ALL,
 ) {
+    val layout = LocalRuneLayout.current
+    val showSlayer = focus != JournalEditorFocus.CHECKLIST
+    val showChecklist = focus != JournalEditorFocus.SLAYER
     var addingEntry by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(layout.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing),
     ) {
         item {
             ScreenHeader(
                 eyebrow = "MANUAL GAME LOG",
-                title = "Journal",
-                subtitle = "Slayer, quests, diaries, collection goals, and reusable loadouts.",
+                title = when (focus) {
+                    JournalEditorFocus.SLAYER -> "Slayer task"
+                    JournalEditorFocus.CHECKLIST -> "Checklist"
+                    JournalEditorFocus.ALL -> "Journal"
+                },
+                subtitle = when (focus) {
+                    JournalEditorFocus.SLAYER -> "Update the current manual Slayer counter."
+                    JournalEditorFocus.CHECKLIST ->
+                        "Edit quests, diaries, collection goals, and loadout notes."
+                    JournalEditorFocus.ALL ->
+                        "Slayer, quests, diaries, collection goals, and reusable loadouts."
+                },
             )
         }
-        item {
+        if (showSlayer) item {
             SlayerCard(
                 state = state,
                 onSetTask = onSetSlayerTask,
@@ -68,7 +89,7 @@ fun JournalScreen(
                 onClear = onClearSlayerTask,
             )
         }
-        item {
+        if (showChecklist) item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -92,7 +113,7 @@ fun JournalScreen(
                 }
             }
         }
-        if (addingEntry) {
+        if (showChecklist && addingEntry) {
             item {
                 ChecklistBuilder { title, category ->
                     onAddChecklistEntry(title, category)
@@ -100,7 +121,7 @@ fun JournalScreen(
                 }
             }
         }
-        ChecklistCategory.entries.forEach { category ->
+        if (showChecklist) ChecklistCategory.entries.forEach { category ->
             val entries = state.checklist.filter { it.category == category }
             if (entries.isNotEmpty()) {
                 item {
@@ -115,7 +136,7 @@ fun JournalScreen(
                 }
             }
         }
-        if (state.checklist.isEmpty()) {
+        if (showChecklist && state.checklist.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(

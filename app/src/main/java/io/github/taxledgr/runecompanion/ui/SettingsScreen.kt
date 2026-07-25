@@ -31,6 +31,7 @@ import io.github.taxledgr.runecompanion.toolkit.skill
 import io.github.taxledgr.runecompanion.toolkit.xpGainedSince
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
 import io.github.taxledgr.runecompanion.util.reportAge
 import java.text.NumberFormat
 import java.time.Instant
@@ -45,6 +46,7 @@ fun SettingsScreen(
     onResetTrackedPlayerBaseline: () -> Unit,
     onClearTrackedPlayer: () -> Unit,
 ) {
+    val layout = LocalRuneLayout.current
     val profile = state.trackedPlayer
     var username by rememberSaveable(profile.username) {
         mutableStateOf(profile.username)
@@ -52,8 +54,8 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(layout.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing),
     ) {
         item {
             ScreenHeader(
@@ -146,6 +148,19 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+        if (profile.username.isNotBlank()) {
+            item {
+                DataFreshnessCard(
+                    source = "Official Hiscores",
+                    updatedAt = profile.lastUpdatedEpochMillis?.let(Instant::ofEpochMilli),
+                    expectedRefreshMinutes = 10,
+                    refreshing = state.trackedPlayerLoading,
+                    cached = state.trackedPlayerError != null && profile.latest != null,
+                    error = state.trackedPlayerError,
+                    onRetry = onRefreshTrackedPlayer,
+                )
             }
         }
         state.trackedPlayerError?.let { error ->

@@ -31,6 +31,7 @@ data class StarUiState(
     val fetchedAt: Instant? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val isCached: Boolean = false,
     val worlds: Map<Int, WorldInfo> = emptyMap(),
 )
 
@@ -96,9 +97,12 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
             _state.update { it.copy(isLoading = true, error = null) }
             runCatching { StarRepository.latest() }
                 .onSuccess { feed ->
+                    val repositoryStatus = StarRepository.status()
                     _state.value = StarUiState(
                         stars = feed.stars,
                         fetchedAt = feed.fetchedAt,
+                        error = repositoryStatus.lastFailureMessage,
+                        isCached = repositoryStatus.lastFailureMessage != null,
                         worlds = _state.value.worlds,
                     )
                     alertNotifier.notifyForMatches(feed.stars)

@@ -22,6 +22,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     private var priceRefreshJob: Job? = null
     private var priceSearchJob: Job? = null
     private var latestPriceQuery = ""
+    private var lastUndoData: PersistedToolkitData? = null
     private val _state = MutableStateFlow(
         ToolkitState(
             reminders = persisted.reminders,
@@ -122,6 +123,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
 
     fun addReminder(title: String, category: ReminderCategory, minutes: Int) {
         if (title.isBlank() || minutes <= 0) return
+        captureUndo("Timer added")
         val reminder = CompanionReminder(
             id = UUID.randomUUID().toString(),
             title = title.trim(),
@@ -134,6 +136,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteReminder(reminderId: String) {
+        captureUndo("Timer removed")
         _state.update { state ->
             state.copy(reminders = state.reminders.filterNot { it.id == reminderId })
         }
@@ -143,6 +146,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
 
     fun setSlayerTask(monster: String, target: Int) {
         if (monster.isBlank() || target <= 0) return
+        captureUndo("Slayer task changed")
         _state.update {
             it.copy(slayerTask = SlayerTask(monster.trim(), target, target))
         }
@@ -162,12 +166,14 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun clearSlayerTask() {
+        captureUndo("Slayer task cleared")
         _state.update { it.copy(slayerTask = null) }
         persist()
     }
 
     fun addChecklistEntry(title: String, category: ChecklistCategory) {
         if (title.isBlank()) return
+        captureUndo("Journal entry added")
         _state.update {
             it.copy(
                 checklist = it.checklist + ChecklistEntry(
@@ -192,6 +198,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteChecklistEntry(id: String) {
+        captureUndo("Journal entry deleted")
         _state.update { state ->
             state.copy(checklist = state.checklist.filterNot { it.id == id })
         }
@@ -221,6 +228,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetTripTimer() {
+        captureUndo("Trip timer reset")
         _state.update {
             it.copy(
                 tripTimer = it.tripTimer.copy(
@@ -270,6 +278,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
 
     fun addPriceWatchItem(item: PriceSearchItem) {
         if (_state.value.priceWatchlist.any { it.id == item.id }) return
+        captureUndo("Price watch added")
         _state.update {
             it.copy(
                 priceWatchlist = it.priceWatchlist + PriceWatchItem(item.id, item.name),
@@ -281,6 +290,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun removePriceWatchItem(id: Int) {
+        captureUndo("Price watch removed")
         _state.update {
             it.copy(priceWatchlist = it.priceWatchlist.filterNot { item -> item.id == id })
         }
@@ -337,6 +347,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     fun saveTrackedPlayer(username: String) {
         val cleanUsername = username.trim().take(MAX_PLAYER_NAME_LENGTH)
         if (cleanUsername.isBlank()) return
+        captureUndo("Tracked player changed")
         _state.update { state ->
             val current = state.trackedPlayer
             val samePlayer = current.username.equals(cleanUsername, ignoreCase = true)
@@ -422,6 +433,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetTrackedPlayerBaseline() {
+        captureUndo("Progress baseline reset")
         _state.update { state ->
             val latest = state.trackedPlayer.latest ?: return@update state
             state.copy(
@@ -432,6 +444,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun clearTrackedPlayer() {
+        captureUndo("Tracked player cleared")
         _state.update {
             it.copy(
                 trackedPlayer = TrackedPlayerProfile(),
@@ -443,18 +456,59 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
         HiscoreRefreshScheduler.sync(getApplication(), enabled = false)
     }
 
-    private fun persist() {
-        val state = _state.value
-        preferences.save(
-            PersistedToolkitData(
-                reminders = state.reminders,
-                slayerTask = state.slayerTask,
-                checklist = state.checklist,
-                tripTimer = state.tripTimer,
-                priceWatchlist = state.priceWatchlist,
-                trackedPlayer = state.trackedPlayer,
-            ),
+    fun undoLastChange() {
+        val restored = lastUndoData ?: return
+        val current = persistedSnapshot()
+        lastUndoData = current
+        current.reminders.forEach { reminder ->
+            ReminderScheduler.cancel(getApplication(), reminder.id)
+        }
+        _state.update { state ->
+            state.copy(
+                reminders = restored.reminders,
+                slayerTask = restored.slayerTask,
+                checklist = restored.checklist,
+                tripTimer = restored.tripTimer,
+                priceWatchlist = restored.priceWatchlist,
+                trackedPlayer = restored.trackedPlayer,
+                undoLabel = "Previous change restored",
+            )
+        }
+        restored.reminders
+            .filter { it.endsAtEpochMillis > System.currentTimeMillis() }
+            .forEach { ReminderScheduler.schedule(getApplication(), it) }
+        HiscoreRefreshScheduler.sync(
+            getApplication(),
+            restored.trackedPlayer.autoRefreshEnabled &&
+                restored.trackedPlayer.username.isNotBlank(),
         )
+        persist()
+    }
+
+    fun dismissUndo() {
+        lastUndoData = null
+        _state.update { it.copy(undoLabel = null) }
+    }
+
+    private fun captureUndo(label: String) {
+        lastUndoData = persistedSnapshot()
+        _state.update { it.copy(undoLabel = label) }
+    }
+
+    private fun persistedSnapshot(): PersistedToolkitData {
+        val state = _state.value
+        return PersistedToolkitData(
+            reminders = state.reminders,
+            slayerTask = state.slayerTask,
+            checklist = state.checklist,
+            tripTimer = state.tripTimer,
+            priceWatchlist = state.priceWatchlist,
+            trackedPlayer = state.trackedPlayer,
+        )
+    }
+
+    private fun persist() {
+        preferences.save(persistedSnapshot())
     }
 
     private companion object {

@@ -114,6 +114,9 @@ class ActivityProfilePreferences(context: Context) {
         put("startFeatureId", startFeatureId ?: "")
         put("navigationTabs", JSONArray(navigationTabs.map(AppTab::name)))
         put("pinnedFeatureIds", JSONArray(pinnedFeatureIds))
+        put("customizationMode", customizationMode.name)
+        put("appDensity", appDensity.name)
+        put("overlayDensity", overlayDensity.name)
     }
 
     private fun JSONObject.toPersonalizationSettings() = PersonalizationSettings(
@@ -122,6 +125,18 @@ class ActivityProfilePreferences(context: Context) {
         navigationTabs = optJSONArray("navigationTabs").stringList()
             .mapNotNull { name -> AppTab.entries.firstOrNull { it.name == name } },
         pinnedFeatureIds = optJSONArray("pinnedFeatureIds").stringList(),
+        customizationMode = enumValue(
+            optString("customizationMode"),
+            CustomizationMode.BASIC,
+        ),
+        appDensity = enumValue(
+            optString("appDensity"),
+            LayoutDensity.COMFORTABLE,
+        ),
+        overlayDensity = enumValue(
+            optString("overlayDensity"),
+            LayoutDensity.COMFORTABLE,
+        ),
     ).normalized()
 
     private fun OverlaySettings.toJson() = JSONObject().apply {
@@ -185,6 +200,6 @@ class ActivityProfilePreferences(context: Context) {
     companion object {
         const val PREFERENCES_NAME = "rune_companion_activity_profiles"
         private const val KEY_STATE = "state"
-        private const val CURRENT_SCHEMA_VERSION = 1
+        private const val CURRENT_SCHEMA_VERSION = 2
     }
 }

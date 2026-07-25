@@ -66,6 +66,7 @@ import io.github.taxledgr.runecompanion.overlay.OverlaySettings
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
 import io.github.taxledgr.runecompanion.ui.theme.RuneGold
 import io.github.taxledgr.runecompanion.ui.theme.RuneSurfaceRaised
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
 import io.github.taxledgr.runecompanion.util.reportAge
 import io.github.taxledgr.runecompanion.util.starTimingSummary
 
@@ -106,12 +107,14 @@ fun RuneCompanionApp(
     onOverlayOpacityChanged: (Int) -> Unit,
     onOpenStarMiners: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    editorMode: Boolean = false,
 ) {
+    val layout = LocalRuneLayout.current
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTier by rememberSaveable { mutableIntStateOf(0) }
     var accessFilter by rememberSaveable { mutableStateOf(WorldAccessFilter.ANY) }
     var selectedRegion by rememberSaveable { mutableStateOf<String?>(null) }
-    var controlsExpanded by rememberSaveable { mutableStateOf(false) }
+    var controlsExpanded by rememberSaveable { mutableStateOf(editorMode) }
     val filteredStars = remember(
         state.stars,
         state.worlds,
@@ -148,13 +151,24 @@ fun RuneCompanionApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(layout.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing),
         ) {
             item {
                 Header(
                     starCount = state.stars.size,
                     fetchedAt = state.fetchedAt?.let { reportAge(it) },
+                )
+            }
+            item {
+                DataFreshnessCard(
+                    source = "Star Miners",
+                    updatedAt = state.fetchedAt,
+                    expectedRefreshMinutes = 1,
+                    refreshing = state.isLoading,
+                    cached = state.isCached,
+                    error = state.error,
+                    onRetry = onRefresh,
                 )
             }
             item {

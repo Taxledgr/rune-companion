@@ -296,6 +296,7 @@ data class FeatureState(
     val marketHistory: List<MarketHistoryPoint> = emptyList(),
     val marketHistoryLoading: Boolean = false,
     val restoreGeneration: Int = 0,
+    val undoLabel: String? = null,
 )
 
 fun PublicCounterGoal.currentValue(profile: AccountProfile?): Long =

@@ -64,6 +64,7 @@ import io.github.taxledgr.runecompanion.personalization.ActivityProfilePreferenc
 import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
 import io.github.taxledgr.runecompanion.personalization.ActivityProfileTemplate
 import io.github.taxledgr.runecompanion.personalization.ActivityStarFilters
+import io.github.taxledgr.runecompanion.personalization.LayoutDensity
 import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
 import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
 import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
@@ -1343,10 +1344,17 @@ class OverlayService :
 
     private fun textView(label: String, size: Float, colour: Int) = TextView(this).apply {
         text = label
-        textSize = size
+        textSize = size * overlayTextScale()
         setTextColor(colour)
         typeface = Typeface.create("sans", Typeface.NORMAL)
     }
+
+    private fun overlayTextScale(): Float =
+        when (activityProfiles.activeProfile.personalization.overlayDensity) {
+            LayoutDensity.COMPACT -> 0.9f
+            LayoutDensity.COMFORTABLE -> 1f
+            LayoutDensity.LARGE -> 1.12f
+        }
 
     private fun startInForeground() {
         val openIntent = PendingIntent.getActivity(

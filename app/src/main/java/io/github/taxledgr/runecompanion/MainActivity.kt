@@ -79,7 +79,8 @@ class MainActivity : ComponentActivity() {
         activityProfiles.value = loadActivityProfiles()
         applyActivityProfile(activityProfiles.value.activeProfile, refreshViewModels = false)
         setContent {
-            RuneCompanionTheme {
+            val personalization = personalizationSettings.collectAsStateWithLifecycle()
+            RuneCompanionTheme(layoutDensity = personalization.value.appDensity) {
                 val state = starViewModel.state.collectAsStateWithLifecycle()
                 val alertSettings = starViewModel.alertSettings.collectAsStateWithLifecycle()
                 val starFilterSettings =
@@ -90,7 +91,6 @@ class MainActivity : ComponentActivity() {
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
                 val configuredOverlay = overlaySettings.collectAsStateWithLifecycle()
-                val personalization = personalizationSettings.collectAsStateWithLifecycle()
                 val configuredActivityProfiles =
                     activityProfiles.collectAsStateWithLifecycle()
                 LaunchedEffect(
@@ -202,6 +202,8 @@ class MainActivity : ComponentActivity() {
                     onResetTrackedPlayerBaseline =
                         toolkitViewModel::resetTrackedPlayerBaseline,
                     onClearTrackedPlayer = toolkitViewModel::clearTrackedPlayer,
+                    onUndoToolkitChange = toolkitViewModel::undoLastChange,
+                    onDismissToolkitUndo = toolkitViewModel::dismissUndo,
                     onOpenUrl = openCompanionUrl,
                     starsContent = {
                         RuneCompanionApp(

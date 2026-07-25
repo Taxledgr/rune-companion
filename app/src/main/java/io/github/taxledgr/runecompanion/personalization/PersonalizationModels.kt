@@ -9,11 +9,34 @@ enum class AppTab(val label: String, val symbol: String) {
     MORE("More", "☰"),
 }
 
+enum class CustomizationMode(val label: String, val description: String) {
+    BASIC(
+        "Basic",
+        "Choose an activity, start screen, quick tools, and layout size.",
+    ),
+    ADVANCED(
+        "Advanced",
+        "Also reorder navigation, tune the overlay, and manage every shortcut.",
+    ),
+}
+
+enum class LayoutDensity(
+    val label: String,
+    val description: String,
+) {
+    COMPACT("Compact", "More information on screen"),
+    COMFORTABLE("Comfortable", "Balanced spacing and controls"),
+    LARGE("Large", "Roomier cards and easier reading"),
+}
+
 data class PersonalizationSettings(
     val startTab: AppTab = AppTab.STARS,
     val startFeatureId: String? = null,
     val navigationTabs: List<AppTab> = AppTab.entries,
     val pinnedFeatureIds: List<String> = listOf("TELEPORTS", "XP_CHARTS", "GOALS"),
+    val customizationMode: CustomizationMode = CustomizationMode.BASIC,
+    val appDensity: LayoutDensity = LayoutDensity.COMFORTABLE,
+    val overlayDensity: LayoutDensity = LayoutDensity.COMFORTABLE,
 ) {
     val effectiveStartTab: AppTab
         get() = if (startFeatureId == null) startTab else AppTab.MORE

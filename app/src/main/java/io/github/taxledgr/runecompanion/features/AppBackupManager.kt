@@ -59,8 +59,16 @@ class AppBackupManager(private val context: Context) {
                     "Android could not save the restored data"
                 }
             }
+            if (PREFERENCES_FEATURES in updates) {
+                FeaturePreferences(context).refreshDatabaseFromPreferenceMirror()
+            }
         } catch (error: Throwable) {
             snapshots.forEach { (name, values) -> replacePreferences(name, values) }
+            if (PREFERENCES_FEATURES in snapshots) {
+                runCatching {
+                    FeaturePreferences(context).refreshDatabaseFromPreferenceMirror()
+                }
+            }
             throw error
         }
     }
@@ -124,9 +132,10 @@ class AppBackupManager(private val context: Context) {
         const val MAX_VALUE_LENGTH = 12 * 1_024 * 1_024
         const val MAX_SET_VALUES = 10_000
         const val MAX_SET_VALUE_LENGTH = 4_096
+        const val PREFERENCES_FEATURES = "rune_companion_features"
         val PREFERENCE_FILES = listOf(
             "rune_companion_toolkit",
-            "rune_companion_features",
+            PREFERENCES_FEATURES,
             "rune_companion_overlay",
             "rune_companion_personalization",
             ActivityProfilePreferences.PREFERENCES_NAME,

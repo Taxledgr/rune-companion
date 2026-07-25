@@ -34,7 +34,9 @@ import io.github.taxledgr.runecompanion.toolkit.attemptsForChance
 import io.github.taxledgr.runecompanion.toolkit.dropChancePercent
 import io.github.taxledgr.runecompanion.toolkit.xpForLevel
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
 import java.text.NumberFormat
+import java.time.Instant
 import java.util.Locale
 
 @Composable
@@ -47,10 +49,11 @@ fun ToolsScreen(
     onLookupHiscores: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
+    val layout = LocalRuneLayout.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(layout.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing),
     ) {
         item {
             ScreenHeader(
@@ -58,6 +61,24 @@ fun ToolsScreen(
                 title = "Tools",
                 subtitle = "Prices, hiscores, drop odds, XP, supplies, and OSRS references.",
             )
+        }
+        if (state.priceWatchlist.isNotEmpty() || state.priceError != null) {
+            item {
+                DataFreshnessCard(
+                    source = "OSRS Wiki prices",
+                    updatedAt = state.priceWatchlist
+                        .mapNotNull { it.updatedAtEpochSeconds }
+                        .maxOrNull()
+                        ?.let(Instant::ofEpochSecond),
+                    expectedRefreshMinutes = 5,
+                    refreshing = state.priceLoading,
+                    cached = state.priceError != null && state.priceWatchlist.any {
+                        it.high != null || it.low != null
+                    },
+                    error = state.priceError,
+                    onRetry = onRefreshPrices,
+                )
+            }
         }
         item {
             PriceWatchCard(

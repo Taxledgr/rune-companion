@@ -3,7 +3,6 @@ package io.github.taxledgr.runecompanion.ui
 import android.graphics.Color
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -33,9 +32,11 @@ import io.github.taxledgr.runecompanion.util.AppUserAgent
 import io.github.taxledgr.runecompanion.util.TrustedUrlPolicy
 import io.github.taxledgr.runecompanion.util.TrustedWikiWebViewClient
 import io.github.taxledgr.runecompanion.util.applyPrivateWebSettings
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
 
 @Composable
 fun WikiPortalScreen(onOpenArticle: (String) -> Unit) {
+    val layout = LocalRuneLayout.current
     var query by rememberSaveable { mutableStateOf("") }
     val sections = listOf(
         "Getting around" to listOf(
@@ -71,8 +72,8 @@ fun WikiPortalScreen(onOpenArticle: (String) -> Unit) {
     )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(layout.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing),
     ) {
         item {
             ScreenHeader(
@@ -147,7 +148,7 @@ fun WikiReaderScreen(
     var title by remember { mutableStateOf("OSRS Wiki") }
     var currentUrl by remember(initialUrl) { mutableStateOf(normalizeWikiUrl(initialUrl)) }
 
-    BackHandler {
+    SafeBackHandler {
         val view = webView
         if (view?.canGoBack() == true) view.goBack() else onClose()
     }

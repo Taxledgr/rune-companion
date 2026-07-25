@@ -23,6 +23,18 @@ class PersonalizationPreferences(context: Context) {
                     .enumList<AppTab>()
                     .ifEmpty { AppTab.entries },
                 pinnedFeatureIds = root.optJSONArray("pinnedFeatureIds").stringList(),
+                customizationMode = root.enumOrDefault(
+                    "customizationMode",
+                    CustomizationMode.BASIC,
+                ),
+                appDensity = root.enumOrDefault(
+                    "appDensity",
+                    LayoutDensity.COMFORTABLE,
+                ),
+                overlayDensity = root.enumOrDefault(
+                    "overlayDensity",
+                    LayoutDensity.COMFORTABLE,
+                ),
             ).normalized()
         }.getOrDefault(PersonalizationSettings())
     }
@@ -35,6 +47,9 @@ class PersonalizationPreferences(context: Context) {
             put("startFeatureId", normalized.startFeatureId ?: "")
             put("navigationTabs", JSONArray(normalized.navigationTabs.map(AppTab::name)))
             put("pinnedFeatureIds", JSONArray(normalized.pinnedFeatureIds))
+            put("customizationMode", normalized.customizationMode.name)
+            put("appDensity", normalized.appDensity.name)
+            put("overlayDensity", normalized.overlayDensity.name)
         }
         preferences.edit().putString(KEY_SETTINGS, root.toString()).apply()
     }
@@ -59,6 +74,6 @@ class PersonalizationPreferences(context: Context) {
     companion object {
         const val PREFERENCES_NAME = "rune_companion_personalization"
         private const val KEY_SETTINGS = "settings"
-        private const val CURRENT_SCHEMA_VERSION = 1
+        private const val CURRENT_SCHEMA_VERSION = 2
     }
 }

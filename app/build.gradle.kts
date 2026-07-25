@@ -29,13 +29,14 @@ providers.gradleProperty("runeCompanionBuildDir").orNull?.let { externalBuildDir
 android {
     namespace = "io.github.taxledgr.runecompanion"
     compileSdk = 35
+    testBuildType = "qualityTest"
 
     defaultConfig {
         applicationId = "io.github.taxledgr.runecompanion"
         minSdk = 30
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.8.3"
+        versionCode = 25
+        versionName = "1.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -68,6 +69,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        create("qualityTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".qualitytest"
+            versionNameSuffix = "-qualitytest"
+            matchingFallbacks += listOf("debug")
         }
     }
 
@@ -120,10 +127,17 @@ dependencies {
 
     debugImplementation(composeBom)
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    add("qualityTestImplementation", composeBom)
+    add("qualityTestImplementation", "androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
 
 tasks.register("securityCheck") {

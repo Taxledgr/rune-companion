@@ -14,6 +14,26 @@ class PersonalizationModelsTest {
         assertEquals(AppTab.STARS, settings.effectiveStartTab)
         assertEquals(AppTab.entries, settings.navigationTabs)
         assertTrue("TELEPORTS" in settings.pinnedFeatureIds)
+        assertEquals(CustomizationMode.BASIC, settings.customizationMode)
+        assertEquals(LayoutDensity.COMFORTABLE, settings.appDensity)
+        assertEquals(LayoutDensity.COMFORTABLE, settings.overlayDensity)
+    }
+
+    @Test
+    fun densityAndCustomizationModeRemainIndependentAcrossEdits() {
+        val settings = PersonalizationSettings(
+            customizationMode = CustomizationMode.ADVANCED,
+            appDensity = LayoutDensity.COMPACT,
+            overlayDensity = LayoutDensity.LARGE,
+        )
+            .withStartTab(AppTab.JOURNAL)
+            .withPinnedFeature("SLAYER", true)
+
+        assertEquals(CustomizationMode.ADVANCED, settings.customizationMode)
+        assertEquals(LayoutDensity.COMPACT, settings.appDensity)
+        assertEquals(LayoutDensity.LARGE, settings.overlayDensity)
+        assertEquals(AppTab.JOURNAL, settings.startTab)
+        assertTrue("SLAYER" in settings.pinnedFeatureIds)
     }
 
     @Test

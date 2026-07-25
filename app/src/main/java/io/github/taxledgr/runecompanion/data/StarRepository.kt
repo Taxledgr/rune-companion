@@ -11,9 +11,18 @@ object StarRepository {
 
     private val mutex = Mutex()
     private val client = StarFeedClient()
+    @Volatile
     private var cachedFeed: StarFeed? = null
+    @Volatile
     private var lastAttemptAt: Instant? = null
+    @Volatile
     private var lastFailure: Throwable? = null
+
+    fun status() = StarRepositoryStatus(
+        cachedAt = cachedFeed?.fetchedAt,
+        lastAttemptAt = lastAttemptAt,
+        lastFailureMessage = lastFailure?.message,
+    )
 
     suspend fun latest(): StarFeed = mutex.withLock {
         val now = Instant.now()
@@ -42,3 +51,9 @@ object StarRepository {
             }
     }
 }
+
+data class StarRepositoryStatus(
+    val cachedAt: Instant?,
+    val lastAttemptAt: Instant?,
+    val lastFailureMessage: String?,
+)

@@ -8,19 +8,40 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class FeaturePreferences(context: Context) {
+    private val applicationContext = context.applicationContext
     private val preferences =
-        context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+        applicationContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val database = FeatureDatabase(applicationContext)
 
     fun load(): FeatureData {
+        val databaseSnapshot = runCatching { database.snapshot() }.getOrNull()
+        decodeOrNull(databaseSnapshot?.current)?.let { return it }
+        decodeOrNull(databaseSnapshot?.recovery)?.let { recovered ->
+            runCatching {
+                database.replace(
+                    current = requireNotNull(databaseSnapshot?.recovery),
+                    recovery = databaseSnapshot?.current,
+                )
+            }
+            return recovered
+        }
+
         val primary = preferences.getString(KEY_DATA, null)
         decodeOrNull(primary)?.let { data ->
             ensureRecoveryCopy(requireNotNull(primary))
+            runCatching {
+                database.replace(
+                    current = primary,
+                    recovery = preferences.getString(KEY_DATA_RECOVERY, null),
+                )
+            }
             return data
         }
 
         val recovery = preferences.getString(KEY_DATA_RECOVERY, null)
         decodeOrNull(recovery)?.let { data ->
-            preferences.edit().putString(KEY_DATA, recovery).apply()
+            preferences.edit().putString(KEY_DATA, recovery).commit()
+            runCatching { database.replace(requireNotNull(recovery), primary) }
             return data
         }
         return FeatureData()
@@ -29,12 +50,40 @@ class FeaturePreferences(context: Context) {
     fun save(data: FeatureData) {
         val encoded = encode(data).toString()
         val current = preferences.getString(KEY_DATA, null)
-        preferences.edit().apply {
+        database.save(encoded)
+        check(preferences.edit().apply {
             if (current != null && current != encoded) {
                 putString(KEY_DATA_RECOVERY, current)
             }
             putString(KEY_DATA, encoded)
-        }.apply()
+        }.commit()) { "Android could not update the backup-compatible data mirror" }
+    }
+
+    fun refreshDatabaseFromPreferenceMirror(): FeatureData {
+        val primary = preferences.getString(KEY_DATA, null)
+        val recovery = preferences.getString(KEY_DATA_RECOVERY, null)
+        val data = decodeOrNull(primary)
+            ?: decodeOrNull(recovery)
+            ?: throw IllegalArgumentException("Backup contains invalid companion data")
+        val encoded = primary.takeIf { decodeOrNull(it) != null }
+            ?: requireNotNull(recovery)
+        database.replace(
+            current = encoded,
+            recovery = recovery.takeIf { it != encoded && decodeOrNull(it) != null },
+        )
+        return data
+    }
+
+    fun storageDiagnostics(): FeatureStorageDiagnostics {
+        val snapshot = runCatching { database.snapshot() }.getOrNull()
+        return FeatureStorageDiagnostics(
+            databaseReady = decodeOrNull(snapshot?.current) != null,
+            recoveryReady = decodeOrNull(snapshot?.recovery) != null,
+            databaseBytes = snapshot?.sizeBytes ?: 0L,
+            mirrorBytes = listOf(KEY_DATA, KEY_DATA_RECOVERY)
+                .sumOf { preferences.getString(it, null)?.length?.toLong() ?: 0L },
+            lastSavedAtEpochMillis = snapshot?.lastSavedAtEpochMillis,
+        )
     }
 
     private fun encode(data: FeatureData) = JSONObject().apply {
@@ -416,3 +465,11 @@ class FeaturePreferences(context: Context) {
         private const val CURRENT_SCHEMA_VERSION = 3
     }
 }
+
+data class FeatureStorageDiagnostics(
+    val databaseReady: Boolean,
+    val recoveryReady: Boolean,
+    val databaseBytes: Long,
+    val mirrorBytes: Long,
+    val lastSavedAtEpochMillis: Long?,
+)

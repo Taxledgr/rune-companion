@@ -35,7 +35,14 @@ import io.github.taxledgr.runecompanion.toolkit.ReminderCategory
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.toolkit.formatDuration
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
 import kotlinx.coroutines.delay
+
+enum class TimerEditorFocus {
+    ALL,
+    REMINDERS,
+    TRIP,
+}
 
 @Composable
 fun TimersScreen(
@@ -47,7 +54,11 @@ fun TimersScreen(
     onSetTripLabel: (String) -> Unit,
     onToggleTripTimer: () -> Unit,
     onResetTripTimer: () -> Unit,
+    focus: TimerEditorFocus = TimerEditorFocus.ALL,
 ) {
+    val layout = LocalRuneLayout.current
+    val showReminders = focus != TimerEditorFocus.TRIP
+    val showTrip = focus != TimerEditorFocus.REMINDERS
     val timerNeedsTicks =
         state.tripTimer.startedAtEpochMillis != null ||
             state.reminders.any { it.endsAtEpochMillis > System.currentTimeMillis() }
@@ -63,17 +74,28 @@ fun TimersScreen(
     var addingReminder by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(layout.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing),
     ) {
         item {
             ScreenHeader(
                 eyebrow = "REMINDERS & TRIPS",
-                title = "Timers",
-                subtitle = "Local Android timers for routines, bosses, and raids.",
+                title = when (focus) {
+                    TimerEditorFocus.REMINDERS -> "Reminders"
+                    TimerEditorFocus.TRIP -> "Trip timer"
+                    TimerEditorFocus.ALL -> "Timers"
+                },
+                subtitle = when (focus) {
+                    TimerEditorFocus.REMINDERS ->
+                        "Create and manage local Android reminders."
+                    TimerEditorFocus.TRIP ->
+                        "Edit the active boss or raid stopwatch."
+                    TimerEditorFocus.ALL ->
+                        "Local Android timers for routines, bosses, and raids."
+                },
             )
         }
-        if (!notificationPermissionGranted) {
+        if (showReminders && !notificationPermissionGranted) {
             item {
                 Card {
                     Column(
@@ -92,7 +114,7 @@ fun TimersScreen(
                 }
             }
         }
-        item {
+        if (showReminders) item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -116,7 +138,7 @@ fun TimersScreen(
                 }
             }
         }
-        if (addingReminder) {
+        if (showReminders && addingReminder) {
             item {
                 ReminderBuilder { title, category, minutes ->
                     onAddReminder(title, category, minutes)
@@ -124,7 +146,7 @@ fun TimersScreen(
                 }
             }
         }
-        if (state.reminders.isEmpty()) {
+        if (showReminders && state.reminders.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -135,13 +157,15 @@ fun TimersScreen(
                 }
             }
         }
-        items(
-            items = state.reminders.sortedBy(CompanionReminder::endsAtEpochMillis),
-            key = CompanionReminder::id,
-        ) { reminder ->
-            ReminderCard(reminder, nowEpochMillis, onDeleteReminder)
+        if (showReminders) {
+            items(
+                items = state.reminders.sortedBy(CompanionReminder::endsAtEpochMillis),
+                key = CompanionReminder::id,
+            ) { reminder ->
+                ReminderCard(reminder, nowEpochMillis, onDeleteReminder)
+            }
         }
-        item {
+        if (showTrip) item {
             TripTimerCard(
                 timer = state.tripTimer,
                 nowEpochMillis = nowEpochMillis,

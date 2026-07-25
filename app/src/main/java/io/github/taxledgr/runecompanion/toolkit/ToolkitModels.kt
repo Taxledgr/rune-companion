@@ -104,6 +104,7 @@ data class ToolkitState(
     val trackedPlayer: TrackedPlayerProfile = TrackedPlayerProfile(),
     val trackedPlayerLoading: Boolean = false,
     val trackedPlayerError: String? = null,
+    val undoLabel: String? = null,
 )
 
 data class PersistedToolkitData(

@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +70,7 @@ import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.toolkit.activity
 import io.github.taxledgr.runecompanion.toolkit.formatDuration
+import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
 import io.github.taxledgr.runecompanion.util.SensitiveClipboard
 import java.text.NumberFormat
 import java.time.Duration
@@ -101,6 +104,7 @@ internal enum class CompanionFeature(
     ROUTINES("Daily & weekly routines", "Completion streaks for repeatable activities.", "Activities"),
     WIDGET("Android home widget", "One-tap launcher and tracked-player summary.", "Device"),
     BACKUP("Encrypted backup", "AES-GCM export/import protected by a passphrase.", "Device"),
+    DIAGNOSTICS("Companion diagnostics", "Private local health, storage, scheduler, and security status.", "Device"),
     LOADOUTS("Shareable loadouts", "Save inventory, equipment, and setup notes.", "Activities"),
     BOSS_READINESS("Boss readiness checker", "Check public stats, manual unlocks, supplies, routes, and loadouts.", "Planning"),
     ITINERARY("Smart gameplay itinerary", "Combine farming, routines, supplies, and travel into one ordered run.", "Planning"),
@@ -122,6 +126,8 @@ fun FeatureHubScreen(
     personalizationSettings: PersonalizationSettings,
     activityProfiles: ActivityProfileState,
     initialFeatureId: String?,
+    navigationRequest: String? = null,
+    onNavigationRequestConsumed: () -> Unit = {},
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
     onActivityProfileSelected: (String) -> Unit,
     onActivityProfileCreated: (String) -> Unit,
@@ -154,6 +160,31 @@ fun FeatureHubScreen(
             lastActivityProfileId = activityProfiles.activeProfileId
         }
     }
+    LaunchedEffect(navigationRequest) {
+        when (navigationRequest) {
+            null -> Unit
+            NAVIGATION_CUSTOMIZE -> {
+                selected = null
+                settingsOpen = false
+                personalizationOpen = true
+                onNavigationRequestConsumed()
+            }
+            NAVIGATION_SETTINGS -> {
+                selected = null
+                personalizationOpen = false
+                settingsOpen = true
+                onNavigationRequestConsumed()
+            }
+            else -> {
+                selected = CompanionFeature.entries.firstOrNull {
+                    it.name == navigationRequest
+                }
+                settingsOpen = false
+                personalizationOpen = false
+                onNavigationRequestConsumed()
+            }
+        }
+    }
     SafeBackHandler(
         enabled = personalizationOpen || settingsOpen || selected != null,
     ) {
@@ -164,8 +195,9 @@ fun FeatureHubScreen(
         }
     }
 
-    when {
-        personalizationOpen -> FeaturePage(
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            personalizationOpen -> FeaturePage(
             title = "Customize experience",
             onBack = { personalizationOpen = false },
         ) {
@@ -179,7 +211,7 @@ fun FeatureHubScreen(
                 onActivityProfileDeleted = onActivityProfileDeleted,
             )
         }
-        settingsOpen -> FeaturePage(title = "App settings", onBack = { settingsOpen = false }) {
+            settingsOpen -> FeaturePage(title = "App settings", onBack = { settingsOpen = false }) {
             SettingsScreen(
                 state = toolkitState,
                 onCustomizeExperience = { personalizationOpen = true },
@@ -190,24 +222,46 @@ fun FeatureHubScreen(
                 onClearTrackedPlayer = onClearTrackedPlayer,
             )
         }
-        selected != null -> FeaturePage(
+            selected != null -> FeaturePage(
             title = selected!!.title,
             onBack = { selected = null },
         ) {
-            FeatureContent(
-                feature = selected!!,
+            if (selected == CompanionFeature.DIAGNOSTICS) {
+                DiagnosticsScreen(
+                    featureState = state,
+                    toolkitState = toolkitState,
+                    activityProfiles = activityProfiles,
+                )
+            } else {
+                FeatureContent(
+                    feature = selected!!,
+                    state = state,
+                    viewModel = viewModel,
+                    onOpenUrl = onOpenUrl,
+                )
+            }
+        }
+            else -> FeatureHub(
                 state = state,
-                viewModel = viewModel,
-                onOpenUrl = onOpenUrl,
+                pinnedFeatureIds = personalizationSettings.pinnedFeatureIds,
+                activeProfile = activityProfiles.activeProfile,
+                onSettings = { settingsOpen = true },
+                onSelect = { selected = it },
             )
         }
-        else -> FeatureHub(
-            state = state,
-            pinnedFeatureIds = personalizationSettings.pinnedFeatureIds,
-            activeProfile = activityProfiles.activeProfile,
-            onSettings = { settingsOpen = true },
-            onSelect = { selected = it },
-        )
+        state.undoLabel?.let { label ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+            ) {
+                UndoChangeCard(
+                    label = label,
+                    onUndo = viewModel::undoLastChange,
+                    onDismiss = viewModel::dismissUndo,
+                )
+            }
+        }
     }
 }
 
@@ -219,6 +273,7 @@ private fun FeatureHub(
     onSettings: () -> Unit,
     onSelect: (CompanionFeature) -> Unit,
 ) {
+    val layout = LocalRuneLayout.current
     var search by rememberSaveable { mutableStateOf("") }
     val visibleFeatures = CompanionFeature.entries.filter {
         search.isBlank() ||
@@ -230,8 +285,8 @@ private fun FeatureHub(
         CompanionFeature.entries.firstOrNull { it.name == id }
     }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = layout.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.itemSpacing),
     ) {
         item {
             Spacer(Modifier.height(10.dp))
@@ -372,6 +427,7 @@ private fun CompanionFeature.quickStatus(state: FeatureState): String {
         CompanionFeature.COUNTER_GOALS -> "${data.counterGoals.size} counter goals"
         CompanionFeature.SUPPLY_LOCKER -> "${data.supplyLocker.size} tracked supplies"
         CompanionFeature.WILDERNESS_RISK -> "${data.wildernessRisk.size} risk items"
+        CompanionFeature.DIAGNOSTICS -> "Private local status"
         else -> summary
     }
 }
@@ -445,6 +501,7 @@ private fun FeatureContent(
         CompanionFeature.MARKET_HISTORY -> MarketHistoryScreen(state, viewModel)
         CompanionFeature.WILDERNESS_RISK -> WildernessRiskScreen(state, viewModel, onOpenUrl)
         CompanionFeature.MONSTER_EXPLORER -> MonsterExplorerScreen(onOpenUrl)
+        CompanionFeature.DIAGNOSTICS -> Unit
     }
 }
 

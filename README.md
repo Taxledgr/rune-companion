@@ -5,6 +5,50 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.9
+
+- Customization now has Basic and Advanced modes, staged changes, live app and
+  overlay previews, clearer per-profile summaries, and consistent Save, Cancel,
+  Reset, Undo, and profile-delete confirmation.
+- App and overlay density can be configured independently as Compact,
+  Comfortable, or Large. Each activity profile remembers both choices.
+- Global search finds existing tools, settings, saved teleports, Slayer cards,
+  loadouts, accounts, reminders, active tasks, and full OSRS Wiki results.
+- Floating editing is more focused: Timers and Trip open separate workspaces,
+  as do Slayer and Checklist, while feature-backed sections still open their
+  exact editor.
+- Stars, Hiscores, and Wiki prices show their source, last successful update,
+  cached/offline status, and a direct retry action.
+- A private Diagnostics helper reports local database/recovery health, storage
+  size, scheduled background work, public-data status, and security boundaries.
+  Nothing from diagnostics is uploaded.
+- Large structured gameplay data is now written transactionally to a private
+  SQLite database with a last-known-good recovery row. A preference mirror is
+  retained for encrypted export, Android transfer, and backward-safe restore.
+- Adds reversible Undo for structured gameplay changes and destructive toolkit
+  actions such as deleting timers, journal entries, price watches, and tracked
+  players.
+- The one-command updater can build, create private pre/post-update safety
+  archives under the Windows user's Local AppData, install with `adb install -r`,
+  verify saved preference files, and report the installed version and APK hash.
+- Search, diagnostics, edit controls, layout metrics, and database storage are
+  isolated into smaller modules, with new unit and on-device Compose regression
+  tests.
+- Version 1.9 uses Android version code 25 and updates the existing debug-signed
+  installation in place without deleting saved companion data.
+
+### One-command private update
+
+With Android wireless debugging connected, build and update in place using:
+
+```powershell
+.\scripts\install-update.ps1 -Device PHONE_IP:PORT -Build
+```
+
+The updater never uninstalls Rune Companion. Its local safety archives are
+stored outside the repository under `%LOCALAPPDATA%\RuneCompanion\update-backups`.
+They may contain locally saved companion information, so keep them private.
+
 ## Version 1.8.3
 
 - Android Back navigation is now installed only when a screen has an Activity
