@@ -28,6 +28,9 @@ fun RuneCompanionShell(
     featureState: FeatureState,
     featureViewModel: FeatureViewModel,
     personalizationSettings: PersonalizationSettings,
+    initialTab: AppTab = personalizationSettings.effectiveStartTab,
+    initialFeatureId: String? = personalizationSettings.startFeatureId,
+    showNavigation: Boolean = true,
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
     notificationPermissionGranted: Boolean,
     onRequestNotificationPermission: () -> Unit,
@@ -56,11 +59,11 @@ fun RuneCompanionShell(
     starsContent: @Composable () -> Unit,
 ) {
     var selectedTab by rememberSaveable {
-        mutableStateOf(personalizationSettings.effectiveStartTab)
+        mutableStateOf(initialTab)
     }
     val tabStateHolder = rememberSaveableStateHolder()
-    LaunchedEffect(personalizationSettings.navigationTabs) {
-        if (selectedTab !in personalizationSettings.navigationTabs) {
+    LaunchedEffect(personalizationSettings.navigationTabs, showNavigation) {
+        if (showNavigation && selectedTab !in personalizationSettings.navigationTabs) {
             selectedTab = personalizationSettings.effectiveStartTab
                 .takeIf { it in personalizationSettings.navigationTabs }
                 ?: personalizationSettings.navigationTabs.first()
@@ -70,14 +73,16 @@ fun RuneCompanionShell(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar {
-                personalizationSettings.navigationTabs.forEach { tab ->
-                    NavigationBarItem(
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        icon = { Text(tab.symbol) },
-                        label = { Text(tab.label) },
-                    )
+            if (showNavigation) {
+                NavigationBar {
+                    personalizationSettings.navigationTabs.forEach { tab ->
+                        NavigationBarItem(
+                            selected = selectedTab == tab,
+                            onClick = { selectedTab = tab },
+                            icon = { Text(tab.symbol) },
+                            label = { Text(tab.label) },
+                        )
+                    }
                 }
             }
         },
@@ -124,7 +129,7 @@ fun RuneCompanionShell(
                         viewModel = featureViewModel,
                         toolkitState = toolkitState,
                         personalizationSettings = personalizationSettings,
-                        initialFeatureId = personalizationSettings.startFeatureId,
+                        initialFeatureId = initialFeatureId,
                         onPersonalizationChanged = onPersonalizationChanged,
                         onSaveTrackedPlayer = onSaveTrackedPlayer,
                         onAutoRefreshChanged = onTrackedPlayerAutoRefreshChanged,

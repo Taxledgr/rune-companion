@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -26,8 +27,21 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import io.github.taxledgr.runecompanion.MainActivity
 import io.github.taxledgr.runecompanion.R
 import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
@@ -38,10 +52,14 @@ import io.github.taxledgr.runecompanion.data.StarMapCatalog
 import io.github.taxledgr.runecompanion.data.StarMapPoint
 import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.features.FeaturePreferences
+import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
 import io.github.taxledgr.runecompanion.features.StarTravelPlanner
+import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
+import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
 import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
+import io.github.taxledgr.runecompanion.ui.StarViewModel
 import io.github.taxledgr.runecompanion.util.reportAge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +73,21 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-class OverlayService : Service() {
+class OverlayService :
+    Service(),
+    LifecycleOwner,
+    SavedStateRegistryOwner,
+    ViewModelStoreOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val savedStateController = SavedStateRegistryController.create(this)
+    private val serviceViewModelStore = ViewModelStore()
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateController.savedStateRegistry
+    override val viewModelStore: ViewModelStore
+        get() = serviceViewModelStore
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val alertNotifier by lazy { StarAlertNotifier(this) }
     private val alertPreferences by lazy { StarAlertPreferences(this) }
@@ -63,11 +95,25 @@ class OverlayService : Service() {
     private val featurePreferences by lazy { FeaturePreferences(this) }
     private val toolkitPreferences by lazy { ToolkitPreferences(this) }
     private val overlayPreferences by lazy { OverlayPreferences(this) }
+    private val personalizationPreferences by lazy { PersonalizationPreferences(this) }
+    private val editorViewModelFactory by lazy {
+        ViewModelProvider.AndroidViewModelFactory.getInstance(application)
+    }
+    private val toolkitViewModel by lazy {
+        ViewModelProvider(this, editorViewModelFactory)[ToolkitViewModel::class.java]
+    }
+    private val featureViewModel by lazy {
+        ViewModelProvider(this, editorViewModelFactory)[FeatureViewModel::class.java]
+    }
+    private val starViewModel by lazy {
+        ViewModelProvider(this, editorViewModelFactory)[StarViewModel::class.java]
+    }
     private lateinit var windowManager: WindowManager
     private lateinit var overlayParams: WindowManager.LayoutParams
     private var overlayView: View? = null
     private var panelView: View? = null
     private var bubbleView: TextView? = null
+    private var editorView: ComposeView? = null
     private var starContainer: LinearLayout? = null
     private var starScroll: ScrollView? = null
     private var statusText: TextView? = null
@@ -85,6 +131,11 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        savedStateController.performAttach()
+        savedStateController.performRestore(null)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
     }
@@ -115,22 +166,45 @@ class OverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        overlayView?.post {
+            val root = overlayView as? FrameLayout ?: return@post
+            if (editorView != null) {
+                resizeEditorWindow(root)
+            } else {
+                clampOverlayPosition(overlayParams)
+                windowManager.updateViewLayout(root, overlayParams)
+            }
+        }
+    }
+
     override fun onDestroy() {
         refreshJob?.cancel()
         serviceScope.cancel()
         destroyMapViews()
+        editorView?.disposeComposition()
+        editorView = null
         overlayView?.let { view ->
             runCatching { windowManager.removeView(view) }
         }
         overlayView = null
         panelView = null
         bubbleView = null
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        serviceViewModelStore.clear()
         _running.value = false
         super.onDestroy()
     }
 
     private fun showOverlay() {
-        val root = FrameLayout(this)
+        val root = FrameLayout(this).apply {
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setViewTreeViewModelStoreOwner(this@OverlayService)
+            setViewTreeSavedStateRegistryOwner(this@OverlayService)
+        }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
@@ -160,6 +234,11 @@ class OverlayService : Service() {
         header.addView(
             actionButton("›", "Next enabled section") {
                 cycleModule(1)
+            },
+        )
+        header.addView(
+            actionButton("✎", "Edit this section") {
+                openEditor()
             },
         )
         header.addView(
@@ -711,6 +790,93 @@ class OverlayService : Service() {
         overlayView?.let { windowManager.updateViewLayout(it, overlayParams) }
     }
 
+    private fun openEditor() {
+        if (editorView != null) return
+        val root = overlayView as? FrameLayout ?: return
+        panelX = overlayParams.x
+        panelY = overlayParams.y
+        panelView?.visibility = View.GONE
+        bubbleView?.visibility = View.GONE
+        destroyMapViews()
+
+        overlayParams.flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        overlayParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        resizeEditorWindow(root)
+
+        toolkitViewModel.setAppInForeground(true)
+        featureViewModel.setAppInForeground(true)
+        starViewModel.setAppInForeground(true)
+        val editor = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@OverlayService)
+            setViewTreeViewModelStoreOwner(this@OverlayService)
+            setViewTreeSavedStateRegistryOwner(this@OverlayService)
+            background = panelBackground()
+            clipToOutline = true
+            setContent {
+                OverlayEditorContent(
+                    context = this@OverlayService,
+                    module = overlaySettings.selectedModule,
+                    toolkitViewModel = toolkitViewModel,
+                    featureViewModel = featureViewModel,
+                    starViewModel = starViewModel,
+                    initialOverlaySettings = overlaySettings,
+                    initialPersonalizationSettings = personalizationPreferences.load(),
+                    onOverlaySettingsChanged = { settings ->
+                        overlaySettings = settings.normalized()
+                        overlayPreferences.save(overlaySettings)
+                    },
+                    onPersonalizationChanged = personalizationPreferences::save,
+                    onClose = ::closeEditor,
+                    onStopOverlay = ::stopSelf,
+                )
+            }
+        }
+        root.addView(
+            editor,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        editorView = editor
+    }
+
+    private fun resizeEditorWindow(root: FrameLayout) {
+        val bounds = displayBounds()
+        val editorWidth = (bounds.width() * EDITOR_WIDTH_FRACTION).toInt()
+        val editorHeight = (bounds.height() * EDITOR_HEIGHT_FRACTION).toInt()
+        overlayParams.width = editorWidth
+        overlayParams.height = editorHeight
+        overlayParams.x = ((bounds.width() - editorWidth) / 2).coerceAtLeast(0)
+        overlayParams.y = ((bounds.height() - editorHeight) / 2).coerceAtLeast(0)
+        windowManager.updateViewLayout(root, overlayParams)
+    }
+
+    private fun closeEditor() {
+        val root = overlayView as? FrameLayout ?: return
+        editorView?.let { editor ->
+            editor.disposeComposition()
+            root.removeView(editor)
+        }
+        editorView = null
+        toolkitViewModel.setAppInForeground(false)
+        featureViewModel.setAppInForeground(false)
+        starViewModel.setAppInForeground(false)
+        bubbleView?.visibility = View.GONE
+        panelView?.visibility = View.VISIBLE
+        overlayParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        overlayParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        overlayParams.width = dp(PANEL_WIDTH_DP)
+        overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        overlayParams.x = panelX
+        overlayParams.y = panelY
+        clampOverlayPosition(overlayParams)
+        windowManager.updateViewLayout(root, overlayParams)
+        expandedStarId = null
+        renderActiveModule()
+    }
+
     private fun updateBubble(module: OverlayModule, count: Int) {
         bubbleView?.apply {
             text = getString(R.string.overlay_bubble_text, module.symbol, count)
@@ -856,6 +1022,8 @@ class OverlayService : Service() {
         private const val MINIMUM_VISIBLE_HEIGHT_DP = 72
         private const val EXPANDED_LIST_HEIGHT_DP = 430
         private const val OVERLAY_MAP_HEIGHT_DP = 180
+        private const val EDITOR_WIDTH_FRACTION = 0.92f
+        private const val EDITOR_HEIGHT_FRACTION = 0.88f
 
         private val _running = MutableStateFlow(false)
         val running = _running.asStateFlow()

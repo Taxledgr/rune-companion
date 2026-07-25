@@ -5,6 +5,21 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.7
+
+- The compact overlay now has an **Edit** action for every configured section.
+- Editing expands into a focusable 92% × 88% floating workspace while OSRS
+  remains visible and running behind it.
+- Each of the 27 overlay sections opens its matching existing Rune Companion
+  editor, including Stars, timers, Slayer, journals, accounts, goals,
+  teleports, economy tools, supplies, and session logs.
+- Text fields use the Android keyboard normally; catalogue selectors, Add, Save,
+  and other existing form controls work without leaving the overlay.
+- **Done** returns to the compact panel at its previous position, and saved data
+  is immediately reflected in that panel.
+- Version 1.7 uses Android version code 20 and updates earlier versions in place
+  without deleting saved profiles, settings, filters, routes, or journals.
+
 ## Version 1.6
 
 - Personalize the app around Shooting Stars, skilling and Mining, questing,
@@ -90,7 +105,7 @@ See [the complete 1.3 release notes](docs/RELEASE_NOTES_1.3.md).
 - Saved world, tier, and favourite-location alerts with quiet hours
 - Configurable alert sounds through Android notification settings
 - Reliable background checks through Android WorkManager
-- A draggable Android overlay with full and compact modes
+- A draggable Android overlay with compact, bubble, and near-full editing modes
 - One-minute refresh interval and manual refresh
 - Direct link to the official Star Miners live map
 - Farming, birdhouse, daily, and custom reminders
