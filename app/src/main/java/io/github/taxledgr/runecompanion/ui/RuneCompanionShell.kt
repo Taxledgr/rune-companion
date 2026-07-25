@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -142,17 +143,25 @@ fun RuneCompanionShell(
         },
         bottomBar = {
             if (showNavigation) {
-                NavigationBar(
-                    modifier = Modifier.height(APP_NAVIGATION_HEIGHT),
-                    windowInsets = WindowInsets(0, 0, 0, 0),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
                 ) {
-                    personalizationSettings.navigationTabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = selectedTab == tab,
-                            onClick = { selectedTab = tab },
-                            icon = { Text(tab.symbol) },
-                            label = { Text(tab.label) },
-                        )
+                    NavigationBar(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(APP_NAVIGATION_HEIGHT),
+                        windowInsets = WindowInsets(0, 0, 0, 0),
+                    ) {
+                        personalizationSettings.navigationTabs.forEach { tab ->
+                            NavigationBarItem(
+                                selected = selectedTab == tab,
+                                onClick = { selectedTab = tab },
+                                icon = { Text(tab.symbol) },
+                                label = { Text(tab.label) },
+                            )
+                        }
                     }
                 }
             }

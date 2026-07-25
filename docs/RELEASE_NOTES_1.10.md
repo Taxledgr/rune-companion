@@ -1,5 +1,13 @@
 # Rune Companion 1.10
 
+## 1.10.3 portrait navigation clearance
+
+- The compact 68dp app navigation now sits above the runtime-reported Android
+  navigation-button inset.
+- The same inset handling also protects the right edge when the phone uses
+  three-button navigation in landscape.
+- Version `1.10.3` uses Android version code `29`.
+
 ## 1.10.2 system-bar spacing
 
 - The profile/search header respects the Android status-bar inset.

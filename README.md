@@ -5,6 +5,14 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.10.3
+
+- The compact bottom navigation now reserves the phone's real Android
+  navigation-button inset, keeping Rune Companion's icons and labels fully
+  above the Home, Back, and Recents buttons in portrait mode.
+- Version 1.10.3 uses Android version code 29 and updates version 1.10.2 in
+  place without deleting saved companion data.
+
 ## Version 1.10.2
 
 - The activity/search header now sits below the Android status icons instead of
