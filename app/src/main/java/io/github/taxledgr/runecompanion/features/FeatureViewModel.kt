@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,18 +29,39 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     private val backupManager = AppBackupManager(application)
     private val hiscoreClient = HiscoreClient()
     private val priceClient = PriceClient()
-    private val _state = MutableStateFlow(FeatureState(data = loadPersistedData()))
+    private val _state = MutableStateFlow(FeatureState(initializing = true))
     val state: StateFlow<FeatureState> = _state.asStateFlow()
+    private val persistenceQueue = Channel<FeatureData>(Channel.CONFLATED)
     private var foregroundRefreshJob: Job? = null
+    private var diskReloadJob: Job? = null
     private var priceRefreshJob: Job? = null
     private var priceSearchJob: Job? = null
     private var latestPriceQuery = ""
     private val refreshingAccounts = mutableSetOf<String>()
+    private val pendingMutations = mutableListOf<(FeatureData) -> FeatureData>()
     private var appInForeground = false
+    private var initialized = false
+    private var dataVersion = 0L
 
     init {
-        GeAlertScheduler.sync(application, _state.value.data.geAlerts.isNotEmpty())
-        FeatureRefreshScheduler.sync(application, _state.value.data.accounts.any { it.autoRefresh })
+        viewModelScope.launch(Dispatchers.IO) {
+            for (data in persistenceQueue) {
+                preferences.save(data)
+                RuneCompanionWidget.updateAll(getApplication())
+            }
+        }
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) { loadPersistedData() }
+            val data = pendingMutations.fold(loaded) { current, mutation ->
+                mutation(current)
+            }
+            pendingMutations.clear()
+            _state.update { it.copy(data = data, initializing = false) }
+            initialized = true
+            if (data != loaded) persistenceQueue.trySend(data)
+            syncSchedulers(data)
+            if (appInForeground) startForegroundRefresh()
+        }
     }
 
     fun setAppInForeground(inForeground: Boolean) {
@@ -47,9 +69,12 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         appInForeground = inForeground
         foregroundRefreshJob?.cancel()
         foregroundRefreshJob = null
-        if (!inForeground) return
-
+        if (!inForeground || !initialized) return
         reloadFromDisk()
+    }
+
+    private fun startForegroundRefresh() {
+        if (!appInForeground || !initialized || foregroundRefreshJob?.isActive == true) return
         refreshStaleAccounts()
         refreshPrices()
         foregroundRefreshJob = viewModelScope.launch {
@@ -840,7 +865,17 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     fun reloadFromDisk() {
-        _state.update { it.copy(data = loadPersistedData()) }
+        diskReloadJob?.cancel()
+        val versionAtStart = dataVersion
+        diskReloadJob = viewModelScope.launch {
+            val data = withContext(Dispatchers.IO) { loadPersistedData() }
+            if (dataVersion == versionAtStart) {
+                _state.update { it.copy(data = data, initializing = false) }
+            }
+            initialized = true
+            syncSchedulers(_state.value.data)
+            startForegroundRefresh()
+        }
     }
 
     private fun loadPersistedData(): FeatureData {
@@ -851,9 +886,33 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun updateData(block: (FeatureData) -> FeatureData) {
-        _state.update { state -> state.copy(data = block(state.data)) }
-        preferences.save(_state.value.data)
-        RuneCompanionWidget.updateAll(getApplication())
+        if (!initialized) {
+            pendingMutations += block
+            return
+        }
+        var updated = _state.value.data
+        _state.update { state ->
+            state.copy(data = block(state.data).also { updated = it })
+        }
+        dataVersion += 1
+        persistenceQueue.trySend(updated)
+    }
+
+    fun selectAccountForProfile(username: String?) {
+        val selected = username?.takeIf { candidate ->
+            _state.value.data.accounts.any {
+                it.username.equals(candidate, ignoreCase = true)
+            }
+        }
+        updateData { it.copy(selectedAccount = selected) }
+    }
+
+    private fun syncSchedulers(data: FeatureData) {
+        GeAlertScheduler.sync(getApplication(), data.geAlerts.isNotEmpty())
+        FeatureRefreshScheduler.sync(
+            getApplication(),
+            data.accounts.any { it.autoRefresh },
+        )
     }
 
     private fun id(): String = UUID.randomUUID().toString()

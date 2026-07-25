@@ -30,7 +30,7 @@ class FeaturePreferences(context: Context) {
         val encoded = encode(data).toString()
         val current = preferences.getString(KEY_DATA, null)
         preferences.edit().apply {
-            if (current != null && current != encoded && decodeOrNull(current) != null) {
+            if (current != null && current != encoded) {
                 putString(KEY_DATA_RECOVERY, current)
             }
             putString(KEY_DATA, encoded)

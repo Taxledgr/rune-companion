@@ -36,20 +36,55 @@ class PriceClient {
     suspend fun latest(items: List<PriceWatchItem>): List<PriceWatchItem> =
         withContext(Dispatchers.IO) {
             if (items.isEmpty()) return@withContext emptyList()
-            val response = request("$BASE_URL/latest")
-            val data = JSONObject(response).getJSONObject("data")
+            val data = latestPrices()
             items.map { item ->
-                val price = data.optJSONObject(item.id.toString()) ?: return@map item
+                val price = data[item.id] ?: return@map item
                 item.copy(
-                    high = price.optLongOrNull("high"),
-                    low = price.optLongOrNull("low"),
-                    updatedAtEpochSeconds = maxOf(
-                        price.optLong("highTime"),
-                        price.optLong("lowTime"),
-                    ).takeIf { it > 0 },
+                    high = price.high,
+                    low = price.low,
+                    updatedAtEpochSeconds = price.updatedAtEpochSeconds,
                 )
             }
         }
+
+    private suspend fun latestPrices(): Map<Int, LatestPrice> {
+        val now = System.currentTimeMillis()
+        latestCache
+            ?.takeIf { now - it.savedAtEpochMillis < LATEST_CACHE_TTL_MILLIS }
+            ?.prices
+            ?.let { return it }
+        return latestMutex.withLock {
+            val lockedNow = System.currentTimeMillis()
+            latestCache
+                ?.takeIf { lockedNow - it.savedAtEpochMillis < LATEST_CACHE_TTL_MILLIS }
+                ?.prices
+                ?: fetchLatestPrices().also { prices ->
+                    latestCache = CachedLatestPrices(lockedNow, prices)
+                }
+        }
+    }
+
+    private fun fetchLatestPrices(): Map<Int, LatestPrice> {
+        val response = request("$BASE_URL/latest")
+        val data = JSONObject(response).getJSONObject("data")
+        return buildMap {
+            data.keys().forEach { idText ->
+                val id = idText.toIntOrNull() ?: return@forEach
+                val price = data.optJSONObject(idText) ?: return@forEach
+                put(
+                    id,
+                    LatestPrice(
+                        high = price.optLongOrNull("high"),
+                        low = price.optLongOrNull("low"),
+                        updatedAtEpochSeconds = maxOf(
+                            price.optLong("highTime"),
+                            price.optLong("lowTime"),
+                        ).takeIf { it > 0 },
+                    ),
+                )
+            }
+        }
+    }
 
     suspend fun history(
         itemId: Int,
@@ -122,9 +157,24 @@ class PriceClient {
         const val BASE_URL = "https://prices.runescape.wiki/api/v1/osrs"
         const val MAX_RESPONSE_BYTES = 12 * 1_024 * 1_024
         const val MAX_SEARCH_RESULTS = 8
+        const val LATEST_CACHE_TTL_MILLIS = 60_000L
         val ALLOWED_TIMESTEPS = setOf("5m", "1h", "6h", "24h")
         val mappingMutex = Mutex()
+        val latestMutex = Mutex()
         @Volatile
         var mappingCache: List<PriceSearchItem>? = null
+        @Volatile
+        var latestCache: CachedLatestPrices? = null
     }
 }
+
+private data class LatestPrice(
+    val high: Long?,
+    val low: Long?,
+    val updatedAtEpochSeconds: Long?,
+)
+
+private data class CachedLatestPrices(
+    val savedAtEpochMillis: Long,
+    val prices: Map<Int, LatestPrice>,
+)

@@ -48,8 +48,14 @@ fun TimersScreen(
     onToggleTripTimer: () -> Unit,
     onResetTripTimer: () -> Unit,
 ) {
-    val nowEpochMillis by produceState(initialValue = System.currentTimeMillis()) {
-        while (true) {
+    val timerNeedsTicks =
+        state.tripTimer.startedAtEpochMillis != null ||
+            state.reminders.any { it.endsAtEpochMillis > System.currentTimeMillis() }
+    val nowEpochMillis by produceState(
+        initialValue = System.currentTimeMillis(),
+        key1 = timerNeedsTicks,
+    ) {
+        while (timerNeedsTicks) {
             value = System.currentTimeMillis()
             delay(1_000)
         }

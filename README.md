@@ -5,6 +5,26 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.8.2
+
+- Android Back now closes the current helper or settings page first, then
+  returns to the activity profile's chosen start tab instead of unexpectedly
+  exiting Rune Companion.
+- Large saved companion data is loaded, encoded, and backed up away from the
+  UI thread. Existing content remains visible while a disk refresh completes.
+- Fresh Hiscores, world-directory, and Wiki price responses are shared between
+  foreground screens, the overlay, alerts, and background refreshes to reduce
+  duplicate downloads, parsing, battery use, and data use.
+- The overlay caches gameplay-helper content between refreshes instead of
+  repeatedly parsing the full saved-data file. Idle timer screens also stop
+  ticking when no countdown is active.
+- Loading feedback, screen-reader behavior, press feedback, and minimum
+  48-dp touch targets have been improved throughout the main navigation,
+  Shooting Star cards, filters, activity switcher, and floating overlay.
+- Version 1.8.2 uses Android version code 23 and updates the existing
+  debug-signed installation in place without deleting accounts, profiles,
+  filters, routes, timers, or journals.
+
 ## Version 1.8.1
 
 - HTTPS destinations are restricted to exact trusted hosts, redirects and

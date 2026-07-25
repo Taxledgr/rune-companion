@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -53,6 +54,7 @@ import io.github.taxledgr.runecompanion.data.StarMapCatalog
 import io.github.taxledgr.runecompanion.data.StarMapPoint
 import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.features.FeaturePreferences
+import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
@@ -65,6 +67,7 @@ import io.github.taxledgr.runecompanion.personalization.ActivityStarFilters
 import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
 import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
 import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
+import io.github.taxledgr.runecompanion.toolkit.PersistedToolkitData
 import io.github.taxledgr.runecompanion.ui.StarViewModel
 import io.github.taxledgr.runecompanion.util.reportAge
 import io.github.taxledgr.runecompanion.util.AllowlistedResourceWebViewClient
@@ -79,6 +82,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 class OverlayService :
@@ -130,6 +134,9 @@ class OverlayService :
     private var headerTitle: TextView? = null
     private var refreshJob: Job? = null
     private var latestStars: List<ShootingStar> = emptyList()
+    private var cachedFeatures = FeatureData()
+    private var cachedToolkit = PersistedToolkitData()
+    private var contentCacheReady = false
     private var overlaySettings = OverlaySettings()
     private var activeBadgeCount = 0
     private var expandedStarId: String? = null
@@ -200,7 +207,11 @@ class OverlayService :
     }
 
     override fun onDestroy() {
-        if (editorView != null) captureActiveProfile()
+        if (editorView != null) {
+            cachedFeatures = featureViewModel.state.value.data
+            cachedToolkit = toolkitViewModel.state.value.toPersistedData()
+            captureActiveProfile()
+        }
         refreshJob?.cancel()
         serviceScope.cancel()
         destroyMapViews()
@@ -249,26 +260,6 @@ class OverlayService :
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
         )
         header.addView(
-            actionButton("‹", "Previous enabled section") {
-                cycleModule(-1)
-            },
-        )
-        header.addView(
-            actionButton("›", "Next enabled section") {
-                cycleModule(1)
-            },
-        )
-        header.addView(
-            actionButton("✎", "Edit this section") {
-                openEditor()
-            },
-        )
-        header.addView(
-            actionButton("◆", "Switch activity profile") {
-                showProfileSwitcher(openedFromBubble = false)
-            },
-        )
-        header.addView(
             actionButton("−", "Minimise to floating bubble") {
                 minimiseToBubble()
             },
@@ -276,12 +267,43 @@ class OverlayService :
         header.addView(actionButton("×", "Close Rune Companion panel") { stopSelf() })
         panel.addView(header)
 
+        val sectionControls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        sectionControls.addView(
+            textView("SECTION", 10f, Color.rgb(185, 201, 212)),
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        sectionControls.addView(
+            actionButton("‹", "Previous enabled section") {
+                cycleModule(-1)
+            },
+        )
+        sectionControls.addView(
+            actionButton("›", "Next enabled section") {
+                cycleModule(1)
+            },
+        )
+        sectionControls.addView(
+            actionButton("✎", "Edit this section") {
+                openEditor()
+            },
+        )
+        sectionControls.addView(
+            actionButton("◆", "Switch activity profile") {
+                showProfileSwitcher(openedFromBubble = false)
+            },
+        )
+        panel.addView(sectionControls)
+
         statusText = textView(
             getString(R.string.overlay_loading),
             12f,
             Color.rgb(185, 201, 212),
         ).also {
             it.setPadding(0, dp(6), 0, dp(6))
+            it.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             panel.addView(it)
         }
         starContainer = LinearLayout(this).apply {
@@ -371,6 +393,7 @@ class OverlayService :
         if (refreshJob?.isActive == true) return
         refreshJob = serviceScope.launch {
             while (isActive) {
+                refreshContentCache()
                 if (
                     OverlayModule.STARS in overlaySettings.enabledModules ||
                     alertPreferences.load().enabled
@@ -382,6 +405,15 @@ class OverlayService :
                 delay(REFRESH_INTERVAL_MS)
             }
         }
+    }
+
+    private suspend fun refreshContentCache() {
+        val loaded = withContext(Dispatchers.IO) {
+            toolkitPreferences.load() to featurePreferences.load()
+        }
+        cachedToolkit = loaded.first
+        cachedFeatures = loaded.second
+        contentCacheReady = true
     }
 
     private suspend fun loadStars() {
@@ -426,13 +458,18 @@ class OverlayService :
             renderStars(latestStars)
             return
         }
+        if (!contentCacheReady) {
+            statusText?.setText(R.string.overlay_loading)
+            starContainer?.removeAllViews()
+            return
+        }
 
         expandedStarId = null
         destroyMapViews()
         val content = OverlayContentBuilder.build(
             module = module,
-            toolkit = toolkitPreferences.load(),
-            features = featurePreferences.load(),
+            toolkit = cachedToolkit,
+            features = cachedFeatures,
             stars = latestStars,
         )
         activeBadgeCount = content.badgeCount
@@ -570,6 +607,7 @@ class OverlayService :
         val expanded = expandedStarId == id
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            minimumHeight = dp(48)
             setPadding(0, dp(4), 0, dp(4))
             isClickable = true
             isFocusable = true
@@ -611,7 +649,7 @@ class OverlayService :
     private fun LinearLayout.addExpandedRoute(star: ShootingStar) {
         val guide = StarTravelCatalog.guideFor(star.locationName)
         val rankedRoutes = guide?.let {
-            StarTravelPlanner.rank(it, featurePreferences.load())
+            StarTravelPlanner.rank(it, cachedFeatures)
         }.orEmpty()
         if (rankedRoutes.isEmpty()) {
             addView(textView("No route guide is available for this report.", 12f, Color.LTGRAY))
@@ -903,6 +941,8 @@ class OverlayService :
 
     private fun closeEditor() {
         val root = overlayView as? FrameLayout ?: return
+        cachedFeatures = featureViewModel.state.value.data
+        cachedToolkit = toolkitViewModel.state.value.toPersistedData()
         captureActiveProfile()
         editorView?.let { editor ->
             editor.disposeComposition()
@@ -978,6 +1018,7 @@ class OverlayService :
                     15f,
                     if (active) Color.rgb(110, 218, 208) else Color.WHITE,
                 ).apply {
+                    minHeight = dp(48)
                     setPadding(dp(8), dp(10), dp(8), dp(10))
                     contentDescription = if (active) {
                         "${profile.name}, active activity profile"
@@ -1062,12 +1103,15 @@ class OverlayService :
         filterPreferences.save(
             profile.starFilters.applyTo(filterPreferences.load()),
         )
-        val features = featurePreferences.load()
+        val features = cachedFeatures
         val account = profile.selectedAccount?.takeIf { username ->
             features.accounts.any { it.username.equals(username, ignoreCase = true) }
         }
         if (features.selectedAccount != account) {
-            featurePreferences.save(features.copy(selectedAccount = account))
+            cachedFeatures = features.copy(selectedAccount = account)
+            serviceScope.launch(Dispatchers.IO) {
+                featurePreferences.save(cachedFeatures)
+            }
         }
         expandedStarId = null
         applyStoredPlacement(updateWindow = false)
@@ -1080,7 +1124,7 @@ class OverlayService :
         activityProfilePreferences.load(
             legacyPersonalization = personalizationPreferences.load(),
             legacyOverlay = overlayPreferences.load(),
-            selectedAccount = featurePreferences.load().selectedAccount,
+            selectedAccount = cachedFeatures.selectedAccount,
             legacyFilters = filterPreferences.load(),
         )
 
@@ -1090,7 +1134,7 @@ class OverlayService :
             active.copy(
                 personalization = personalizationPreferences.load(),
                 overlay = overlaySettings,
-                selectedAccount = featurePreferences.load().selectedAccount,
+                selectedAccount = cachedFeatures.selectedAccount,
                 starFilters = ActivityStarFilters.from(filters),
             )
         }
@@ -1269,9 +1313,33 @@ class OverlayService :
         textView(label, 22f, Color.WHITE).apply {
             gravity = Gravity.CENTER
             setPadding(dp(8), 0, dp(8), 0)
+            minWidth = dp(48)
+            minHeight = dp(48)
+            isFocusable = true
+            isClickable = true
             contentDescription = description
+            val selectableBackground = TypedValue()
+            if (
+                theme.resolveAttribute(
+                    android.R.attr.selectableItemBackgroundBorderless,
+                    selectableBackground,
+                    true,
+                )
+            ) {
+                setBackgroundResource(selectableBackground.resourceId)
+            }
             setOnClickListener { action() }
         }
+
+    private fun io.github.taxledgr.runecompanion.toolkit.ToolkitState.toPersistedData() =
+        PersistedToolkitData(
+            reminders = reminders,
+            slayerTask = slayerTask,
+            checklist = checklist,
+            tripTimer = tripTimer,
+            priceWatchlist = priceWatchlist,
+            trackedPlayer = trackedPlayer,
+        )
 
     private fun textView(label: String, size: Float, colour: Int) = TextView(this).apply {
         text = label

@@ -9,18 +9,34 @@ import java.net.HttpURLConnection
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class HiscoreClient {
     suspend fun lookup(player: String): HiscoreSummary = withContext(Dispatchers.IO) {
         val cleanPlayer = player.trim()
         require(cleanPlayer.isNotBlank()) { "Enter an OSRS display name" }
+        val cacheKey = cleanPlayer.lowercase()
+        lookupMutex.withLock {
+            val now = System.currentTimeMillis()
+            lookupCache[cacheKey]
+                ?.takeIf { now - it.savedAtEpochMillis < CACHE_TTL_MILLIS }
+                ?.summary
+                ?.let { return@withLock it }
+            fetch(cleanPlayer).also { summary ->
+                lookupCache[cacheKey] = CachedHiscore(now, summary)
+            }
+        }
+    }
+
+    private fun fetch(cleanPlayer: String): HiscoreSummary {
         val encoded = URLEncoder.encode(cleanPlayer, StandardCharsets.UTF_8.name())
         val connection = openTrustedHttpsConnection(
             "$ENDPOINT?player=$encoded",
             setOf(ENDPOINT_HOST),
         )
-        try {
+        return try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 12_000
             connection.readTimeout = 12_000
@@ -42,12 +58,20 @@ class HiscoreClient {
     }
 
     private companion object {
+        const val CACHE_TTL_MILLIS = 2 * 60_000L
         const val ENDPOINT_HOST = "secure.runescape.com"
         const val ENDPOINT =
             "https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws"
         const val MAX_RESPONSE_BYTES = 2 * 1_024 * 1_024
+        val lookupMutex = Mutex()
+        val lookupCache = mutableMapOf<String, CachedHiscore>()
     }
 }
+
+private data class CachedHiscore(
+    val savedAtEpochMillis: Long,
+    val summary: HiscoreSummary,
+)
 
 internal fun parseHiscoreLines(player: String, lines: List<String>): HiscoreSummary {
     val skills = HiscoreCatalog.skillNames.mapIndexedNotNull { index, name ->

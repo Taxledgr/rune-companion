@@ -288,6 +288,7 @@ data class FeatureData(
 
 data class FeatureState(
     val data: FeatureData = FeatureData(),
+    val initializing: Boolean = false,
     val loading: Boolean = false,
     val message: String? = null,
     val priceSearchResults: List<PriceSearchItem> = emptyList(),

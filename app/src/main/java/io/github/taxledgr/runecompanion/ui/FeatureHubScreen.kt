@@ -1,7 +1,9 @@
 package io.github.taxledgr.runecompanion.ui
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -152,6 +155,15 @@ fun FeatureHubScreen(
             lastActivityProfileId = activityProfiles.activeProfileId
         }
     }
+    BackHandler(
+        enabled = personalizationOpen || settingsOpen || selected != null,
+    ) {
+        when {
+            personalizationOpen -> personalizationOpen = false
+            settingsOpen -> settingsOpen = false
+            else -> selected = null
+        }
+    }
 
     when {
         personalizationOpen -> FeaturePage(
@@ -232,6 +244,15 @@ private fun FeatureHub(
             state.message?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, color = MaterialTheme.colorScheme.primary)
+            }
+            if (state.initializing) {
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Text(
+                    "Loading saved companion data…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Spacer(Modifier.height(10.dp))
             Card(
@@ -1598,10 +1619,17 @@ private fun ToggleRow(
     onToggle: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Checkbox,
+                onValueChange = { onToggle() },
+            )
+            .padding(vertical = 4.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
+        Checkbox(checked = checked, onCheckedChange = null)
         Column(Modifier.weight(1f)) {
             Text(label)
             if (detail.isNotBlank()) {

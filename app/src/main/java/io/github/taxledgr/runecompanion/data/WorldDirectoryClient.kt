@@ -5,6 +5,8 @@ import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
 import io.github.taxledgr.runecompanion.util.readUtf8Response
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class WorldInfo(
@@ -24,11 +26,24 @@ fun isDangerousWorldActivity(activity: String): Boolean {
 
 class WorldDirectoryClient {
     suspend fun fetch(): List<WorldInfo> = withContext(Dispatchers.IO) {
+        worldMutex.withLock {
+            val now = System.currentTimeMillis()
+            worldCache
+                ?.takeIf { now - it.savedAtEpochMillis < CACHE_TTL_MILLIS }
+                ?.worlds
+                ?.let { return@withLock it }
+            fetchRemote().also { worlds ->
+                worldCache = CachedWorlds(now, worlds)
+            }
+        }
+    }
+
+    private fun fetchRemote(): List<WorldInfo> {
         val connection = openTrustedHttpsConnection(
             ENDPOINT,
             setOf(ENDPOINT_HOST),
         )
-        try {
+        return try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 12_000
             connection.readTimeout = 12_000
@@ -72,6 +87,7 @@ class WorldDirectoryClient {
         }.distinctBy(WorldInfo::world).toList()
 
     private companion object {
+        const val CACHE_TTL_MILLIS = 6 * 60 * 60_000L
         const val ENDPOINT_HOST = "oldschool.runescape.com"
         const val ENDPOINT = "https://oldschool.runescape.com/slu?order=wlmAp"
         const val MAX_RESPONSE_BYTES = 2 * 1_024 * 1_024
@@ -79,8 +95,16 @@ class WorldDirectoryClient {
             """<tr class='server-list__row[^']*'>.*?id='slu-world-(?<world>\d+)'.*?server-list__row-cell--country\s+server-list__row-cell--(?<country>[A-Z]+)'.*?server-list__row-cell--type'>(?<type>Members|Free)</td>\s*<td class='server-list__row-cell'>(?<activity>.*?)</td>""",
             setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
         )
+        val worldMutex = Mutex()
+        @Volatile
+        var worldCache: CachedWorlds? = null
     }
 }
+
+private data class CachedWorlds(
+    val savedAtEpochMillis: Long,
+    val worlds: List<WorldInfo>,
+)
 
 private val DANGEROUS_WORLD_LABELS = listOf(
     "pvp",
