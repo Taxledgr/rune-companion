@@ -5,6 +5,24 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.6
+
+- Personalize the app around Shooting Stars, skilling and Mining, questing,
+  Slayer, bossing, or a fully custom setup.
+- Choose which screen—or which pinned gameplay helper—opens when Rune Companion
+  starts.
+- Show, hide, and reorder the bottom navigation while keeping a safe route back
+  to **More → App settings**.
+- Pin up to six of the 30 gameplay helpers to a Quick access section with useful
+  saved-data summaries.
+- Focus presets configure a sensible start screen, navigation order, and pinned
+  tools in one tap; every individual choice remains editable.
+- Existing installations default to Stars and retain all saved accounts,
+  filters, timers, journals, routes, and overlay settings.
+- Personalization is stored locally, included in encrypted backups, and restored
+  immediately after import.
+- Version 1.6 uses Android version code 19 and updates earlier versions in place.
+
 ## Version 1.5.1
 
 - Network refreshes now run only while their screens are useful, share cached

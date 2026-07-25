@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.taxledgr.runecompanion"
         minSdk = 28
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.5.1"
+        versionCode = 19
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

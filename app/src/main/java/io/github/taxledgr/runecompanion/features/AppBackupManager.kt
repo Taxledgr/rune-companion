@@ -102,6 +102,7 @@ class AppBackupManager(private val context: Context) {
             "rune_companion_toolkit",
             "rune_companion_features",
             "rune_companion_overlay",
+            "rune_companion_personalization",
             "shooting_star_alerts",
             "shooting_star_filters",
         )

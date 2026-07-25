@@ -38,6 +38,7 @@ import java.time.Instant
 @Composable
 fun SettingsScreen(
     state: ToolkitState,
+    onCustomizeExperience: () -> Unit,
     onSaveTrackedPlayer: (String) -> Unit,
     onAutoRefreshChanged: (Boolean) -> Unit,
     onRefreshTrackedPlayer: () -> Unit,
@@ -56,10 +57,31 @@ fun SettingsScreen(
     ) {
         item {
             ScreenHeader(
-                eyebrow = "LOCAL PROFILE",
+                eyebrow = "APP & PROFILE",
                 title = "Settings",
-                subtitle = "Track public OSRS stats without connecting a Jagex account.",
+                subtitle = "Personalize Rune Companion and track public OSRS stats without connecting a Jagex account.",
             )
+        }
+        item {
+            Card {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Your Rune Companion",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "Choose a focus, start screen, navigation tabs, and pinned quick-access tools.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = onCustomizeExperience) {
+                        Text("Customize experience")
+                    }
+                }
+            }
         }
         item {
             Card {

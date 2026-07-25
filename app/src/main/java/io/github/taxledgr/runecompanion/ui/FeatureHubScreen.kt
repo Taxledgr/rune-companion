@@ -56,6 +56,7 @@ import io.github.taxledgr.runecompanion.features.skillOrEmpty
 import io.github.taxledgr.runecompanion.features.tax
 import io.github.taxledgr.runecompanion.features.totalXp
 import io.github.taxledgr.runecompanion.features.xpGained
+import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
 import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.toolkit.activity
@@ -108,6 +109,9 @@ fun FeatureHubScreen(
     state: FeatureState,
     viewModel: FeatureViewModel,
     toolkitState: ToolkitState,
+    personalizationSettings: PersonalizationSettings,
+    initialFeatureId: String?,
+    onPersonalizationChanged: (PersonalizationSettings) -> Unit,
     onSaveTrackedPlayer: (String) -> Unit,
     onAutoRefreshChanged: (Boolean) -> Unit,
     onRefreshTrackedPlayer: () -> Unit,
@@ -115,13 +119,28 @@ fun FeatureHubScreen(
     onClearTrackedPlayer: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
-    var selected by rememberSaveable { mutableStateOf<CompanionFeature?>(null) }
+    var selected by rememberSaveable {
+        mutableStateOf(
+            CompanionFeature.entries.firstOrNull { it.name == initialFeatureId },
+        )
+    }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var personalizationOpen by rememberSaveable { mutableStateOf(false) }
 
     when {
+        personalizationOpen -> FeaturePage(
+            title = "Customize experience",
+            onBack = { personalizationOpen = false },
+        ) {
+            PersonalizationScreen(
+                settings = personalizationSettings,
+                onSettingsChanged = onPersonalizationChanged,
+            )
+        }
         settingsOpen -> FeaturePage(title = "App settings", onBack = { settingsOpen = false }) {
             SettingsScreen(
                 state = toolkitState,
+                onCustomizeExperience = { personalizationOpen = true },
                 onSaveTrackedPlayer = onSaveTrackedPlayer,
                 onAutoRefreshChanged = onAutoRefreshChanged,
                 onRefreshTrackedPlayer = onRefreshTrackedPlayer,
@@ -142,6 +161,7 @@ fun FeatureHubScreen(
         }
         else -> FeatureHub(
             state = state,
+            pinnedFeatureIds = personalizationSettings.pinnedFeatureIds,
             onSettings = { settingsOpen = true },
             onSelect = { selected = it },
         )
@@ -151,6 +171,7 @@ fun FeatureHubScreen(
 @Composable
 private fun FeatureHub(
     state: FeatureState,
+    pinnedFeatureIds: List<String>,
     onSettings: () -> Unit,
     onSelect: (CompanionFeature) -> Unit,
 ) {
@@ -160,6 +181,9 @@ private fun FeatureHub(
             it.title.contains(search, ignoreCase = true) ||
             it.summary.contains(search, ignoreCase = true) ||
             it.group.contains(search, ignoreCase = true)
+    }
+    val pinnedFeatures = pinnedFeatureIds.mapNotNull { id ->
+        CompanionFeature.entries.firstOrNull { it.name == id }
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -184,8 +208,51 @@ private fun FeatureHub(
                 ),
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("App settings", fontWeight = FontWeight.Bold)
-                    Text("Tracked player, background hiscores, and preferences")
+                    Text("Customize & settings", fontWeight = FontWeight.Bold)
+                    Text("Personalization, tracked player, background hiscores, and preferences")
+                }
+            }
+            if (pinnedFeatures.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Quick access",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Your pinned helpers",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(pinnedFeatures, key = CompanionFeature::name) { feature ->
+                        Card(
+                            modifier = Modifier
+                                .width(230.dp)
+                                .clickable { onSelect(feature) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            ),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp),
+                            ) {
+                                Text(feature.title, fontWeight = FontWeight.Bold)
+                                Text(
+                                    feature.quickStatus(state),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                                Text(
+                                    "Open",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -221,6 +288,33 @@ private fun FeatureHub(
             }
         }
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+private fun CompanionFeature.quickStatus(state: FeatureState): String {
+    val data = state.data
+    return when (this) {
+        CompanionFeature.ACCOUNTS,
+        CompanionFeature.XP_CHARTS,
+        -> "${data.accounts.size} saved account${if (data.accounts.size == 1) "" else "s"}"
+        CompanionFeature.GOALS -> "${data.goals.size} skill goals"
+        CompanionFeature.BANKED_XP -> "${data.bankedXp.size} banked-XP entries"
+        CompanionFeature.GE_ALERTS -> "${data.geAlerts.size} price alerts"
+        CompanionFeature.PORTFOLIO -> "${data.portfolio.size} tracked positions"
+        CompanionFeature.FARMING -> "${data.farmPatches.size} farm patches"
+        CompanionFeature.SLAYER -> "${data.slayerCards.size} saved Slayer cards"
+        CompanionFeature.SESSIONS -> "${data.sessions.size} logged sessions"
+        CompanionFeature.COLLECTION -> "${data.collectionGoals.size} collection goals"
+        CompanionFeature.ROUTINES -> "${data.routines.size} saved routines"
+        CompanionFeature.LOADOUTS -> "${data.loadouts.size} saved loadouts"
+        CompanionFeature.BOSS_READINESS -> "${data.bossReadinessPlans.size} readiness plans"
+        CompanionFeature.ITINERARY -> "${data.itineraryStops.size} itinerary stops"
+        CompanionFeature.GEAR_UPGRADES -> "${data.gearUpgrades.size} upgrade plans"
+        CompanionFeature.LOOT_LEDGER -> "${data.lootLedger.size} loot entries"
+        CompanionFeature.COUNTER_GOALS -> "${data.counterGoals.size} counter goals"
+        CompanionFeature.SUPPLY_LOCKER -> "${data.supplyLocker.size} tracked supplies"
+        CompanionFeature.WILDERNESS_RISK -> "${data.wildernessRisk.size} risk items"
+        else -> summary
     }
 }
 

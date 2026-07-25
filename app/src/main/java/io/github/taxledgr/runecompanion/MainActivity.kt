@@ -24,6 +24,8 @@ import io.github.taxledgr.runecompanion.overlay.OverlayPreferences
 import io.github.taxledgr.runecompanion.overlay.OverlayService
 import io.github.taxledgr.runecompanion.overlay.OverlaySettings
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
+import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
+import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
 import io.github.taxledgr.runecompanion.ui.WikiReaderScreen
 import io.github.taxledgr.runecompanion.ui.isWikiUrl
 import io.github.taxledgr.runecompanion.ui.RuneCompanionApp
@@ -41,10 +43,13 @@ class MainActivity : ComponentActivity() {
     private val starViewModel: StarViewModel by viewModels()
     private val overlayPreferences by lazy { OverlayPreferences(this) }
     private val overlaySettings = MutableStateFlow(OverlaySettings())
+    private val personalizationPreferences by lazy { PersonalizationPreferences(this) }
+    private val personalizationSettings = MutableStateFlow(PersonalizationSettings())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overlaySettings.value = overlayPreferences.load()
+        personalizationSettings.value = personalizationPreferences.load()
         setContent {
             RuneCompanionTheme {
                 val state = starViewModel.state.collectAsStateWithLifecycle()
@@ -57,11 +62,13 @@ class MainActivity : ComponentActivity() {
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
                 val configuredOverlay = overlaySettings.collectAsStateWithLifecycle()
+                val personalization = personalizationSettings.collectAsStateWithLifecycle()
                 LaunchedEffect(featureState.value.restoreGeneration) {
                     if (featureState.value.restoreGeneration > 0) {
                         toolkitViewModel.reloadFromDisk()
                         starViewModel.reloadPreferences()
                         overlaySettings.value = overlayPreferences.load()
+                        personalizationSettings.value = personalizationPreferences.load()
                         if (OverlayService.running.value) {
                             startService(OverlayService.reloadIntent(this@MainActivity))
                         }
@@ -99,6 +106,8 @@ class MainActivity : ComponentActivity() {
                     toolkitState = toolkitState.value,
                     featureState = featureState.value,
                     featureViewModel = featureViewModel,
+                    personalizationSettings = personalization.value,
+                    onPersonalizationChanged = ::updatePersonalizationSettings,
                     notificationPermissionGranted = notificationsGranted.value,
                     onRequestNotificationPermission = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -207,6 +216,7 @@ class MainActivity : ComponentActivity() {
         overlayPermission.value = Settings.canDrawOverlays(this)
         notificationPermission.value = canPostNotifications()
         overlaySettings.value = overlayPreferences.load()
+        personalizationSettings.value = personalizationPreferences.load()
     }
 
     override fun onStart() {
@@ -230,6 +240,12 @@ class MainActivity : ComponentActivity() {
                 Uri.parse("package:$packageName"),
             ),
         )
+    }
+
+    private fun updatePersonalizationSettings(settings: PersonalizationSettings) {
+        val normalized = settings.normalized()
+        personalizationSettings.value = normalized
+        personalizationPreferences.save(normalized)
     }
 
     private fun openStarMiners() {
