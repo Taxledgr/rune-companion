@@ -122,6 +122,25 @@ class FeatureModelsTest {
     }
 
     @Test
+    fun accountRefreshPolicySkipsFreshAndDisabledProfiles() {
+        val now = 1_000_000L
+        val interval = 100_000L
+        val summary = HiscoreSummary("Player", emptyList())
+        val fresh = AccountProfile(
+            username = "Player",
+            snapshots = listOf(StatSnapshot(now - interval + 1, summary)),
+        )
+        val stale = fresh.copy(
+            snapshots = listOf(StatSnapshot(now - interval, summary)),
+        )
+
+        assertFalse(fresh.needsRefresh(now, interval))
+        assertTrue(stale.needsRefresh(now, interval))
+        assertTrue(AccountProfile("New player").needsRefresh(now, interval))
+        assertFalse(stale.copy(autoRefresh = false).needsRefresh(now, interval))
+    }
+
+    @Test
     fun publicCounterGoalUsesMatchingAccountAndClampsProgress() {
         val summary = HiscoreSummary(
             player = "Player",

@@ -1,5 +1,6 @@
 package io.github.taxledgr.runecompanion.data
 
+import io.github.taxledgr.runecompanion.util.AppUserAgent
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -30,7 +31,7 @@ class WorldDirectoryClient {
             connection.readTimeout = 12_000
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/1.3 (github.com/Taxledgr/rune-companion)",
+                AppUserAgent.value,
             )
             if (connection.responseCode !in 200..299) {
                 throw IOException("Official world list returned HTTP ${connection.responseCode}")

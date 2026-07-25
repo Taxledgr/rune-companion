@@ -21,7 +21,7 @@ object FeatureRefreshScheduler {
         }
         manager.enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<FeatureRefreshWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()

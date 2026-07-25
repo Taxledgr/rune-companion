@@ -23,7 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +47,7 @@ fun JournalScreen(
     onToggleChecklistEntry: (String) -> Unit,
     onDeleteChecklistEntry: (String) -> Unit,
 ) {
+    var addingEntry by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(18.dp),
@@ -68,7 +69,36 @@ fun JournalScreen(
             )
         }
         item {
-            ChecklistBuilder(onAddChecklistEntry)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        "Journal entries",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "${state.checklist.count { !it.completed }} open • " +
+                            "${state.checklist.count { it.completed }} complete",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                OutlinedButton(onClick = { addingEntry = !addingEntry }) {
+                    Text(if (addingEntry) "Cancel" else "Add entry")
+                }
+            }
+        }
+        if (addingEntry) {
+            item {
+                ChecklistBuilder { title, category ->
+                    onAddChecklistEntry(title, category)
+                    addingEntry = false
+                }
+            }
         }
         ChecklistCategory.entries.forEach { category ->
             val entries = state.checklist.filter { it.category == category }
@@ -106,11 +136,11 @@ private fun SlayerCard(
     onAdjustRemaining: (Int) -> Unit,
     onClear: () -> Unit,
 ) {
-    var monster by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("150") }
+    var monster by rememberSaveable { mutableStateOf("") }
+    var amount by rememberSaveable { mutableStateOf("150") }
     val taskPresets = CompanionCatalog.slayerTaskNames
     val categories = taskPresets.map(CompanionCatalog::slayerTaskCategory).distinct()
-    var category by remember { mutableStateOf(categories.first()) }
+    var category by rememberSaveable { mutableStateOf(categories.first()) }
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -211,8 +241,8 @@ private fun SlayerCard(
 private fun ChecklistBuilder(
     onAdd: (String, ChecklistCategory) -> Unit,
 ) {
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(ChecklistCategory.QUEST) }
+    var title by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf(ChecklistCategory.QUEST) }
     Card {
         Column(
             modifier = Modifier.padding(16.dp),

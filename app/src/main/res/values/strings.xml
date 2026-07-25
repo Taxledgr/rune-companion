@@ -6,10 +6,14 @@
     <string name="overlay_notification_text">Showing your configured Rune Companion sections</string>
     <string name="overlay_loading">Loading Star Miners…</string>
     <string name="overlay_updating">Updating Star Miners…</string>
-    <plurals name="overlay_live_reports">
-        <item quantity="one">%1$d live report • drag title to move</item>
-        <item quantity="other">%1$d live reports • drag title to move</item>
+    <string name="overlay_header_title">%1$s  %2$s</string>
+    <string name="overlay_module_status">%1$s • %2$s</string>
+    <plurals name="overlay_star_status">
+        <item quantity="one">%1$s • %2$d live report • tap one for route &amp; map</item>
+        <item quantity="other">%1$s • %2$d live reports • tap one for route &amp; map</item>
     </plurals>
+    <string name="overlay_bubble_text">%1$s\n%2$d</string>
+    <string name="widget_tap_to_open">Tap to open</string>
     <string name="star_alert_channel_name">Shooting Star matches</string>
     <string name="star_alert_channel_description">Notifications for saved Shooting Star worlds and tiers</string>
     <string name="star_alert_single_title">Tier %1$d • World %2$d</string>

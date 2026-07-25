@@ -1,5 +1,6 @@
 package io.github.taxledgr.runecompanion.toolkit
 
+import io.github.taxledgr.runecompanion.util.AppUserAgent
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -21,7 +22,7 @@ class HiscoreClient {
             connection.readTimeout = 12_000
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/1.3 (github.com/Taxledgr/rune-companion)",
+                AppUserAgent.value,
             )
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_NOT_FOUND ->

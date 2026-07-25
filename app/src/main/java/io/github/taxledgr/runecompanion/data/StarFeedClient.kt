@@ -1,5 +1,6 @@
 package io.github.taxledgr.runecompanion.data
 
+import io.github.taxledgr.runecompanion.util.AppUserAgent
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -24,7 +25,7 @@ class StarFeedClient(
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/1.3 (github.com/Taxledgr/rune-companion)",
+                AppUserAgent.value,
             )
 
             val responseCode = connection.responseCode

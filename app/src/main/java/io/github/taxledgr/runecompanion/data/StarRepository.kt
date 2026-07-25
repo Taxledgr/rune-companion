@@ -37,6 +37,8 @@ object StarRepository {
             .onFailure { throwable ->
                 lastFailure = throwable
             }
-            .getOrThrow()
+            .getOrElse { throwable ->
+                cachedFeed ?: throw throwable
+            }
     }
 }

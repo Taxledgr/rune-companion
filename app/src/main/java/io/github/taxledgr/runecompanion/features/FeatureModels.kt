@@ -21,6 +21,10 @@ data class AccountProfile(
     val latest: StatSnapshot? get() = snapshots.maxByOrNull { it.capturedAtEpochMillis }
 }
 
+fun AccountProfile.needsRefresh(nowEpochMillis: Long, intervalMillis: Long): Boolean =
+    autoRefresh &&
+        (latest?.capturedAtEpochMillis ?: 0L) <= nowEpochMillis - intervalMillis
+
 data class SkillGoal(
     val id: String,
     val skill: String,
@@ -290,6 +294,7 @@ data class FeatureState(
     val marketItem: PriceSearchItem? = null,
     val marketHistory: List<MarketHistoryPoint> = emptyList(),
     val marketHistoryLoading: Boolean = false,
+    val restoreGeneration: Int = 0,
 )
 
 fun PublicCounterGoal.currentValue(profile: AccountProfile?): Long =

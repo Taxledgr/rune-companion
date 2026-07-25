@@ -17,6 +17,7 @@ import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.data.WorldDirectoryClient
 import io.github.taxledgr.runecompanion.data.WorldInfo
 import java.time.Instant
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,18 +45,15 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
     val alertSettings: StateFlow<StarAlertSettings> = _alertSettings.asStateFlow()
     private val _filterSettings = MutableStateFlow(filterPreferences.load())
     val filterSettings: StateFlow<StarFilterSettings> = _filterSettings.asStateFlow()
+    private var periodicRefreshJob: Job? = null
+    private var refreshJob: Job? = null
+    private var appInForeground = false
 
     init {
         StarAlertScheduler.sync(
             context = application,
             enabled = _alertSettings.value.enabled,
         )
-        viewModelScope.launch {
-            while (isActive) {
-                refresh()
-                delay(REFRESH_INTERVAL_MS)
-            }
-        }
         viewModelScope.launch {
             runCatching { worldDirectoryClient.fetch() }
                 .onSuccess { worlds ->
@@ -67,9 +65,34 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setAppInForeground(inForeground: Boolean) {
+        if (appInForeground == inForeground) return
+        appInForeground = inForeground
+        periodicRefreshJob?.cancel()
+        periodicRefreshJob = null
+        if (!inForeground) return
+
+        refresh()
+        periodicRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                delay(REFRESH_INTERVAL_MS)
+                refresh()
+            }
+        }
+    }
+
+    fun reloadPreferences() {
+        _alertSettings.value = alertPreferences.load()
+        _filterSettings.value = filterPreferences.load()
+        StarAlertScheduler.sync(
+            context = getApplication(),
+            enabled = _alertSettings.value.enabled,
+        )
+    }
+
     fun refresh() {
-        if (_state.value.isLoading && _state.value.stars.isNotEmpty()) return
-        viewModelScope.launch {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             runCatching { StarRepository.latest() }
                 .onSuccess { feed ->

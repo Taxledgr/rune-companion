@@ -15,8 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = MutableStateFlow(false)
     private val toolkitViewModel: ToolkitViewModel by viewModels()
     private val featureViewModel: FeatureViewModel by viewModels()
+    private val starViewModel: StarViewModel by viewModels()
     private val overlayPreferences by lazy { OverlayPreferences(this) }
     private val overlaySettings = MutableStateFlow(OverlaySettings())
 
@@ -46,7 +47,6 @@ class MainActivity : ComponentActivity() {
         overlaySettings.value = overlayPreferences.load()
         setContent {
             RuneCompanionTheme {
-                val starViewModel: StarViewModel = viewModel()
                 val state = starViewModel.state.collectAsStateWithLifecycle()
                 val alertSettings = starViewModel.alertSettings.collectAsStateWithLifecycle()
                 val starFilterSettings =
@@ -57,6 +57,16 @@ class MainActivity : ComponentActivity() {
                 val notificationsGranted = notificationPermission.collectAsStateWithLifecycle()
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
                 val configuredOverlay = overlaySettings.collectAsStateWithLifecycle()
+                LaunchedEffect(featureState.value.restoreGeneration) {
+                    if (featureState.value.restoreGeneration > 0) {
+                        toolkitViewModel.reloadFromDisk()
+                        starViewModel.reloadPreferences()
+                        overlaySettings.value = overlayPreferences.load()
+                        if (OverlayService.running.value) {
+                            startService(OverlayService.reloadIntent(this@MainActivity))
+                        }
+                    }
+                }
                 var activeWikiUrl by rememberSaveable { mutableStateOf<String?>(null) }
                 val openCompanionUrl: (String) -> Unit = { url ->
                     if (isWikiUrl(url)) activeWikiUrl = url else openUrl(url)
@@ -201,12 +211,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        starViewModel.setAppInForeground(true)
         toolkitViewModel.setAppInForeground(true)
-        featureViewModel.reloadFromDisk()
+        featureViewModel.setAppInForeground(true)
     }
 
     override fun onStop() {
+        starViewModel.setAppInForeground(false)
         toolkitViewModel.setAppInForeground(false)
+        featureViewModel.setAppInForeground(false)
         super.onStop()
     }
 

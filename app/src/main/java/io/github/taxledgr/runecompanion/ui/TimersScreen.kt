@@ -22,7 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ import io.github.taxledgr.runecompanion.toolkit.ReminderCategory
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.toolkit.formatDuration
 import io.github.taxledgr.runecompanion.ui.theme.RuneCyan
+import kotlinx.coroutines.delay
 
 @Composable
 fun TimersScreen(
@@ -46,6 +48,13 @@ fun TimersScreen(
     onToggleTripTimer: () -> Unit,
     onResetTripTimer: () -> Unit,
 ) {
+    val nowEpochMillis by produceState(initialValue = System.currentTimeMillis()) {
+        while (true) {
+            value = System.currentTimeMillis()
+            delay(1_000)
+        }
+    }
+    var addingReminder by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(18.dp),
@@ -78,15 +87,36 @@ fun TimersScreen(
             }
         }
         item {
-            ReminderBuilder(onAddReminder)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        "Saved reminders",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "${state.reminders.count { it.endsAtEpochMillis <= nowEpochMillis }} ready • " +
+                            "${state.reminders.size} total",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                OutlinedButton(onClick = { addingReminder = !addingReminder }) {
+                    Text(if (addingReminder) "Cancel" else "Add timer")
+                }
+            }
         }
-        item {
-            TripTimerCard(
-                state = state,
-                onSetTripLabel = onSetTripLabel,
-                onToggle = onToggleTripTimer,
-                onReset = onResetTripTimer,
-            )
+        if (addingReminder) {
+            item {
+                ReminderBuilder { title, category, minutes ->
+                    onAddReminder(title, category, minutes)
+                    addingReminder = false
+                }
+            }
         }
         if (state.reminders.isEmpty()) {
             item {
@@ -103,7 +133,16 @@ fun TimersScreen(
             items = state.reminders.sortedBy(CompanionReminder::endsAtEpochMillis),
             key = CompanionReminder::id,
         ) { reminder ->
-            ReminderCard(reminder, state.nowEpochMillis, onDeleteReminder)
+            ReminderCard(reminder, nowEpochMillis, onDeleteReminder)
+        }
+        item {
+            TripTimerCard(
+                timer = state.tripTimer,
+                nowEpochMillis = nowEpochMillis,
+                onSetTripLabel = onSetTripLabel,
+                onToggle = onToggleTripTimer,
+                onReset = onResetTripTimer,
+            )
         }
     }
 }
@@ -112,9 +151,9 @@ fun TimersScreen(
 private fun ReminderBuilder(
     onAddReminder: (String, ReminderCategory, Int) -> Unit,
 ) {
-    var title by remember { mutableStateOf("") }
-    var minutes by remember { mutableStateOf("50") }
-    var category by remember { mutableStateOf(ReminderCategory.CUSTOM) }
+    var title by rememberSaveable { mutableStateOf("") }
+    var minutes by rememberSaveable { mutableStateOf("50") }
+    var category by rememberSaveable { mutableStateOf(ReminderCategory.CUSTOM) }
 
     Card {
         Column(
@@ -192,12 +231,12 @@ private fun ReminderBuilder(
 
 @Composable
 private fun TripTimerCard(
-    state: ToolkitState,
+    timer: io.github.taxledgr.runecompanion.toolkit.TripTimer,
+    nowEpochMillis: Long,
     onSetTripLabel: (String) -> Unit,
     onToggle: () -> Unit,
     onReset: () -> Unit,
 ) {
-    val timer = state.tripTimer
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -212,7 +251,7 @@ private fun TripTimerCard(
                 singleLine = true,
             )
             Text(
-                formatDuration(timer.elapsedMillis(state.nowEpochMillis)),
+                formatDuration(timer.elapsedMillis(nowEpochMillis)),
                 style = MaterialTheme.typography.headlineMedium,
                 color = RuneCyan,
                 fontWeight = FontWeight.Bold,

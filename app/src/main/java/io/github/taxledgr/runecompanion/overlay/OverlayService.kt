@@ -31,6 +31,7 @@ import androidx.core.app.ServiceCompat
 import io.github.taxledgr.runecompanion.MainActivity
 import io.github.taxledgr.runecompanion.R
 import io.github.taxledgr.runecompanion.alerts.StarAlertNotifier
+import io.github.taxledgr.runecompanion.alerts.StarAlertPreferences
 import io.github.taxledgr.runecompanion.alerts.StarFilterPreferences
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarMapCatalog
@@ -57,6 +58,7 @@ import kotlin.math.abs
 class OverlayService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val alertNotifier by lazy { StarAlertNotifier(this) }
+    private val alertPreferences by lazy { StarAlertPreferences(this) }
     private val filterPreferences by lazy { StarFilterPreferences(this) }
     private val featurePreferences by lazy { FeaturePreferences(this) }
     private val toolkitPreferences by lazy { ToolkitPreferences(this) }
@@ -77,6 +79,8 @@ class OverlayService : Service() {
     private var expandedStarId: String? = null
     private var panelX = 0
     private var panelY = 0
+    private var bubbleX: Int? = null
+    private var bubbleY: Int? = null
     private val mapViews = mutableListOf<WebView>()
 
     override fun onCreate() {
@@ -238,6 +242,10 @@ class OverlayService : Service() {
             params = overlayParams,
             onTap = ::restorePanel,
             snapToEdge = true,
+            onDragEnd = {
+                bubbleX = overlayParams.x
+                bubbleY = overlayParams.y
+            },
         )
         windowManager.addView(root, overlayParams)
         overlayView = root
@@ -248,7 +256,14 @@ class OverlayService : Service() {
         if (refreshJob?.isActive == true) return
         refreshJob = serviceScope.launch {
             while (isActive) {
-                loadStars()
+                if (
+                    OverlayModule.STARS in overlaySettings.enabledModules ||
+                    alertPreferences.load().enabled
+                ) {
+                    loadStars()
+                } else {
+                    renderActiveModule()
+                }
                 delay(REFRESH_INTERVAL_MS)
             }
         }
@@ -287,7 +302,11 @@ class OverlayService : Service() {
 
     private fun renderActiveModule() {
         val module = overlaySettings.normalized().selectedModule
-        headerTitle?.text = "${module.symbol}  ${module.label.uppercase()}"
+        headerTitle?.text = getString(
+            R.string.overlay_header_title,
+            module.symbol,
+            module.label.uppercase(),
+        )
         if (module == OverlayModule.STARS) {
             renderStars(latestStars)
             return
@@ -302,7 +321,11 @@ class OverlayService : Service() {
             stars = latestStars,
         )
         activeBadgeCount = content.badgeCount
-        statusText?.text = "${modulePositionLabel()} • ${content.summary}"
+        statusText?.text = getString(
+            R.string.overlay_module_status,
+            modulePositionLabel(),
+            content.summary,
+        )
         updateBubble(module, activeBadgeCount)
         val visibleEntries = content.entries.take(MAX_OVERLAY_ENTRIES)
         starContainer?.apply {
@@ -347,8 +370,12 @@ class OverlayService : Service() {
         }
         destroyMapViews()
         activeBadgeCount = stars.size
-        statusText?.text = "${modulePositionLabel()} • ${stars.size} live reports • " +
-            "tap one for route & map"
+        statusText?.text = resources.getQuantityString(
+            R.plurals.overlay_star_status,
+            stars.size,
+            modulePositionLabel(),
+            stars.size,
+        )
         updateBubble(OverlayModule.STARS, activeBadgeCount)
         starContainer?.apply {
             removeAllViews()
@@ -579,7 +606,10 @@ class OverlayService : Service() {
             "UTF-8",
             null,
         )
-        setOnTouchListener { _, _ -> true }
+        setOnTouchListener { view, event ->
+            if (event.action == MotionEvent.ACTION_UP) view.performClick()
+            true
+        }
         mapViews += this
     }
 
@@ -599,6 +629,7 @@ class OverlayService : Service() {
         params: WindowManager.LayoutParams,
         onTap: (() -> Unit)? = null,
         snapToEdge: Boolean = false,
+        onDragEnd: (() -> Unit)? = null,
     ) {
         var initialX = 0
         var initialY = 0
@@ -634,6 +665,7 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_UP -> {
                     if (moved) {
                         if (snapToEdge) snapBubbleToEdge(params)
+                        onDragEnd?.invoke()
                     } else {
                         handle.performClick()
                     }
@@ -654,8 +686,15 @@ class OverlayService : Service() {
         bubble.visibility = View.VISIBLE
         overlayParams.width = dp(BUBBLE_SIZE_DP)
         overlayParams.height = dp(BUBBLE_SIZE_DP)
+        val bounds = displayBounds()
+        overlayParams.x = bubbleX ?: (
+            bounds.width() - dp(BUBBLE_SIZE_DP) - dp(BUBBLE_EDGE_INSET_DP)
+            ).coerceAtLeast(0)
+        overlayParams.y = bubbleY ?: (panelY + dp(BUBBLE_DEFAULT_OFFSET_DP))
         updateBubble(overlaySettings.selectedModule, activeBadgeCount)
         snapBubbleToEdge(overlayParams)
+        bubbleX = overlayParams.x
+        bubbleY = overlayParams.y
     }
 
     private fun restorePanel() {
@@ -674,7 +713,7 @@ class OverlayService : Service() {
 
     private fun updateBubble(module: OverlayModule, count: Int) {
         bubbleView?.apply {
-            text = "${module.symbol}\n$count"
+            text = getString(R.string.overlay_bubble_text, module.symbol, count)
             contentDescription = "Restore ${module.label} panel"
         }
     }
@@ -813,6 +852,7 @@ class OverlayService : Service() {
         private const val PANEL_WIDTH_DP = 310
         private const val BUBBLE_SIZE_DP = 58
         private const val BUBBLE_EDGE_INSET_DP = 8
+        private const val BUBBLE_DEFAULT_OFFSET_DP = 140
         private const val MINIMUM_VISIBLE_HEIGHT_DP = 72
         private const val EXPANDED_LIST_HEIGHT_DP = 430
         private const val OVERLAY_MAP_HEIGHT_DP = 180

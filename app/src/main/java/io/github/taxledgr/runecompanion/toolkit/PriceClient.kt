@@ -1,22 +1,22 @@
 package io.github.taxledgr.runecompanion.toolkit
 
 import io.github.taxledgr.runecompanion.features.MarketHistoryPoint
+import io.github.taxledgr.runecompanion.util.AppUserAgent
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
 class PriceClient {
-    @Volatile
-    private var mappingCache: List<PriceSearchItem>? = null
-
     suspend fun search(query: String): List<PriceSearchItem> = withContext(Dispatchers.IO) {
         val cleanQuery = query.trim()
         if (cleanQuery.length < 2) return@withContext emptyList()
-        val mapping = mappingCache ?: fetchMapping().also { mappingCache = it }
+        val mapping = itemMapping()
         mapping.asSequence()
             .filter { it.name.contains(cleanQuery, ignoreCase = true) }
             .sortedWith(
@@ -27,6 +27,11 @@ class PriceClient {
             .take(MAX_SEARCH_RESULTS)
             .toList()
     }
+
+    private suspend fun itemMapping(): List<PriceSearchItem> =
+        mappingCache ?: mappingMutex.withLock {
+            mappingCache ?: fetchMapping().also { mappingCache = it }
+        }
 
     suspend fun latest(items: List<PriceWatchItem>): List<PriceWatchItem> =
         withContext(Dispatchers.IO) {
@@ -95,7 +100,7 @@ class PriceClient {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/1.3 (github.com/Taxledgr/rune-companion)",
+                AppUserAgent.value,
             )
             if (connection.responseCode !in 200..299) {
                 throw IOException("OSRS Wiki prices returned HTTP ${connection.responseCode}")
@@ -113,5 +118,8 @@ class PriceClient {
         const val BASE_URL = "https://prices.runescape.wiki/api/v1/osrs"
         const val MAX_SEARCH_RESULTS = 8
         val ALLOWED_TIMESTEPS = setOf("5m", "1h", "6h", "24h")
+        val mappingMutex = Mutex()
+        @Volatile
+        var mappingCache: List<PriceSearchItem>? = null
     }
 }

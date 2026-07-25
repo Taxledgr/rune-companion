@@ -1,5 +1,6 @@
 package io.github.taxledgr.runecompanion.ui
 
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.net.Uri
 import android.webkit.WebResourceRequest
@@ -26,15 +27,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import io.github.taxledgr.runecompanion.util.AppUserAgent
 
 @Composable
 fun WikiPortalScreen(onOpenArticle: (String) -> Unit) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     val sections = listOf(
         "Getting around" to listOf(
             "Transportation",
@@ -135,13 +138,14 @@ fun WikiPortalScreen(onOpenArticle: (String) -> Unit) {
 }
 
 @Composable
+@SuppressLint("SetJavaScriptEnabled")
 fun WikiReaderScreen(
     initialUrl: String,
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var title by remember { mutableStateOf("OSRS Wiki") }
     var currentUrl by remember(initialUrl) { mutableStateOf(normalizeWikiUrl(initialUrl)) }
 
@@ -203,8 +207,7 @@ fun WikiReaderScreen(
                     settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     settings.safeBrowsingEnabled = true
                     settings.userAgentString =
-                        "${settings.userAgentString} Rune Companion/1.3 " +
-                            "(github.com/Taxledgr/rune-companion)"
+                        "${settings.userAgentString} ${AppUserAgent.value}"
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(
                             view: WebView,

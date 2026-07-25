@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,8 +18,10 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     private val priceClient = PriceClient()
     private val hiscoreClient = HiscoreClient()
     private val persisted = preferences.load()
-    @Volatile
-    private var appInForeground = false
+    private var foregroundHiscoreJob: Job? = null
+    private var priceRefreshJob: Job? = null
+    private var priceSearchJob: Job? = null
+    private var latestPriceQuery = ""
     private val _state = MutableStateFlow(
         ToolkitState(
             reminders = persisted.reminders,
@@ -40,12 +43,6 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
             enabled = persisted.trackedPlayer.autoRefreshEnabled &&
                 persisted.trackedPlayer.username.isNotBlank(),
         )
-        viewModelScope.launch {
-            while (isActive) {
-                _state.update { it.copy(nowEpochMillis = System.currentTimeMillis()) }
-                delay(1_000)
-            }
-        }
         if (persisted.priceWatchlist.isNotEmpty()) refreshPrices()
         if (
             persisted.trackedPlayer.autoRefreshEnabled &&
@@ -53,23 +50,11 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
         ) {
             refreshTrackedPlayer()
         }
-        viewModelScope.launch {
-            while (isActive) {
-                delay(FOREGROUND_HISCORE_INTERVAL_MS)
-                val profile = _state.value.trackedPlayer
-                if (
-                    appInForeground &&
-                    profile.autoRefreshEnabled &&
-                    profile.username.isNotBlank()
-                ) {
-                    refreshTrackedPlayer()
-                }
-            }
-        }
     }
 
     fun setAppInForeground(inForeground: Boolean) {
-        appInForeground = inForeground
+        foregroundHiscoreJob?.cancel()
+        foregroundHiscoreJob = null
         if (!inForeground) return
 
         val storedProfile = preferences.load().trackedPlayer
@@ -89,6 +74,50 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
         ) {
             refreshTrackedPlayer()
         }
+        foregroundHiscoreJob = viewModelScope.launch {
+            while (isActive) {
+                delay(FOREGROUND_HISCORE_INTERVAL_MS)
+                val currentProfile = _state.value.trackedPlayer
+                if (
+                    currentProfile.autoRefreshEnabled &&
+                    currentProfile.username.isNotBlank()
+                ) {
+                    refreshTrackedPlayer()
+                }
+            }
+        }
+    }
+
+    fun reloadFromDisk() {
+        val restored = preferences.load()
+        val restoredReminderIds = restored.reminders.mapTo(mutableSetOf()) { it.id }
+        _state.value.reminders
+            .filterNot { it.id in restoredReminderIds }
+            .forEach { ReminderScheduler.cancel(getApplication(), it.id) }
+        _state.update {
+            it.copy(
+                reminders = restored.reminders,
+                slayerTask = restored.slayerTask,
+                checklist = restored.checklist,
+                tripTimer = restored.tripTimer,
+                priceWatchlist = restored.priceWatchlist,
+                trackedPlayer = restored.trackedPlayer,
+                priceSearchResults = emptyList(),
+                priceLoading = false,
+                priceError = null,
+                trackedPlayerLoading = false,
+                trackedPlayerError = null,
+            )
+        }
+        restored.reminders
+            .filter { it.endsAtEpochMillis > System.currentTimeMillis() }
+            .forEach { ReminderScheduler.schedule(getApplication(), it) }
+        HiscoreRefreshScheduler.sync(
+            context = getApplication(),
+            enabled = restored.trackedPlayer.autoRefreshEnabled &&
+                restored.trackedPlayer.username.isNotBlank(),
+        )
+        if (restored.priceWatchlist.isNotEmpty()) refreshPrices()
     }
 
     fun addReminder(title: String, category: ReminderCategory, minutes: Int) {
@@ -204,19 +233,31 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun searchPrices(query: String) {
-        if (query.trim().length < 2) {
-            _state.update { it.copy(priceSearchResults = emptyList(), priceError = null) }
+        val cleanQuery = query.trim()
+        latestPriceQuery = cleanQuery
+        priceSearchJob?.cancel()
+        if (cleanQuery.length < 2) {
+            _state.update {
+                it.copy(
+                    priceLoading = false,
+                    priceSearchResults = emptyList(),
+                    priceError = null,
+                )
+            }
             return
         }
-        viewModelScope.launch {
+        priceSearchJob = viewModelScope.launch {
+            delay(PRICE_SEARCH_DEBOUNCE_MS)
             _state.update { it.copy(priceLoading = true, priceError = null) }
-            runCatching { priceClient.search(query) }
+            runCatching { priceClient.search(cleanQuery) }
                 .onSuccess { results ->
+                    if (cleanQuery != latestPriceQuery) return@onSuccess
                     _state.update {
                         it.copy(priceLoading = false, priceSearchResults = results)
                     }
                 }
                 .onFailure { error ->
+                    if (cleanQuery != latestPriceQuery) return@onFailure
                     _state.update {
                         it.copy(
                             priceLoading = false,
@@ -248,13 +289,19 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
 
     fun refreshPrices() {
         val watchlist = _state.value.priceWatchlist
-        if (watchlist.isEmpty()) return
-        viewModelScope.launch {
+        if (watchlist.isEmpty() || priceRefreshJob?.isActive == true) return
+        priceRefreshJob = viewModelScope.launch {
             _state.update { it.copy(priceLoading = true, priceError = null) }
             runCatching { priceClient.latest(watchlist) }
                 .onSuccess { prices ->
+                    val pricesById = prices.associateBy(PriceWatchItem::id)
                     _state.update {
-                        it.copy(priceLoading = false, priceWatchlist = prices)
+                        it.copy(
+                            priceLoading = false,
+                            priceWatchlist = it.priceWatchlist.map { item ->
+                                pricesById[item.id] ?: item
+                            },
+                        )
                     }
                     persist()
                 }
@@ -412,6 +459,7 @@ class ToolkitViewModel(application: Application) : AndroidViewModel(application)
 
     private companion object {
         const val FOREGROUND_HISCORE_INTERVAL_MS = 10 * 60_000L
+        const val PRICE_SEARCH_DEBOUNCE_MS = 300L
         const val MAX_PLAYER_NAME_LENGTH = 12
     }
 }

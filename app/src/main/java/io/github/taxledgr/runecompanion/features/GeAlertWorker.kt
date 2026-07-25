@@ -35,7 +35,7 @@ object GeAlertScheduler {
         }
         manager.enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<GeAlertWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()

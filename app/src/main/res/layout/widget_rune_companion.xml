@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:text="Rune Companion"
+        android:text="@string/app_name"
         android:textColor="#E8F1DF"
         android:textSize="18sp"
         android:textStyle="bold" />
@@ -24,8 +24,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:text="Tap to open"
+        android:text="@string/widget_tap_to_open"
         android:textColor="#B7C9A9"
         android:textSize="13sp" />
 </LinearLayout>
-

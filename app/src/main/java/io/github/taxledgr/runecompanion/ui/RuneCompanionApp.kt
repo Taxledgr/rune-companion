@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.github.taxledgr.runecompanion.alerts.StarAlertSettings
 import io.github.taxledgr.runecompanion.alerts.StarFilterSettings
 import io.github.taxledgr.runecompanion.data.ShootingStar
+import io.github.taxledgr.runecompanion.data.StarLocationCatalog
 import io.github.taxledgr.runecompanion.data.StarMapCatalog
 import io.github.taxledgr.runecompanion.data.StarMapPoint
 import io.github.taxledgr.runecompanion.features.FeatureData
@@ -100,10 +102,11 @@ fun RuneCompanionApp(
     onOpenStarMiners: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    var selectedTier by remember { mutableIntStateOf(0) }
-    var accessFilter by remember { mutableStateOf(WorldAccessFilter.ANY) }
-    var selectedRegion by remember { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedTier by rememberSaveable { mutableIntStateOf(0) }
+    var accessFilter by rememberSaveable { mutableStateOf(WorldAccessFilter.ANY) }
+    var selectedRegion by rememberSaveable { mutableStateOf<String?>(null) }
+    var controlsExpanded by rememberSaveable { mutableStateOf(false) }
     val filteredStars = remember(
         state.stars,
         state.worlds,
@@ -150,37 +153,60 @@ fun RuneCompanionApp(
                 )
             }
             item {
-                OverlayCard(
-                    permissionGranted = overlayPermissionGranted,
+                CompanionControlsCard(
+                    expanded = controlsExpanded,
                     running = overlayRunning,
-                    settings = overlaySettings,
-                    onGrantPermission = onGrantOverlayPermission,
-                    onToggle = onToggleOverlay,
-                    onModuleToggled = onOverlayModuleToggled,
-                    onModuleSelected = onOverlayModuleSelected,
+                    overlayPermissionGranted = overlayPermissionGranted,
+                    alertsEnabled = alertSettings.enabled,
+                    hideDangerousWorlds = filterSettings.hideDangerousWorlds,
+                    selectedLocations = StarLocationCatalog.allNames.count { location ->
+                        filterSettings.excludedLocations.none {
+                            it.equals(location, ignoreCase = true)
+                        }
+                    },
+                    totalLocations = StarLocationCatalog.allNames.size,
+                    onOverlayAction = if (overlayPermissionGranted) {
+                        onToggleOverlay
+                    } else {
+                        onGrantOverlayPermission
+                    },
+                    onExpandedChanged = { controlsExpanded = it },
                 )
             }
-            item {
-                StarAlertSettingsCard(
-                    settings = alertSettings,
-                    onWorldsChanged = onAlertWorldsChanged,
-                    onLocationsChanged = onAlertLocationsChanged,
-                    onTierToggled = onAlertTierToggled,
-                    onClearTiers = onClearAlertTiers,
-                    onEnabledChanged = onAlertsEnabledChanged,
-                    onQuietHoursEnabledChanged = onQuietHoursEnabledChanged,
-                    onQuietHoursChanged = onQuietHoursChanged,
-                    onOpenNotificationSettings = onOpenNotificationSettings,
-                )
-            }
-            item {
-                StarLocationFilterCard(
-                    settings = filterSettings,
-                    onHideDangerousWorldsChanged = onHideDangerousWorldsChanged,
-                    onLocationSelected = onLocationSelected,
-                    onLocationsSelected = onLocationsSelected,
-                    onAllLocationsSelected = onAllLocationsSelected,
-                )
+            if (controlsExpanded) {
+                item {
+                    OverlayCard(
+                        permissionGranted = overlayPermissionGranted,
+                        running = overlayRunning,
+                        settings = overlaySettings,
+                        onGrantPermission = onGrantOverlayPermission,
+                        onToggle = onToggleOverlay,
+                        onModuleToggled = onOverlayModuleToggled,
+                        onModuleSelected = onOverlayModuleSelected,
+                    )
+                }
+                item {
+                    StarAlertSettingsCard(
+                        settings = alertSettings,
+                        onWorldsChanged = onAlertWorldsChanged,
+                        onLocationsChanged = onAlertLocationsChanged,
+                        onTierToggled = onAlertTierToggled,
+                        onClearTiers = onClearAlertTiers,
+                        onEnabledChanged = onAlertsEnabledChanged,
+                        onQuietHoursEnabledChanged = onQuietHoursEnabledChanged,
+                        onQuietHoursChanged = onQuietHoursChanged,
+                        onOpenNotificationSettings = onOpenNotificationSettings,
+                    )
+                }
+                item {
+                    StarLocationFilterCard(
+                        settings = filterSettings,
+                        onHideDangerousWorldsChanged = onHideDangerousWorldsChanged,
+                        onLocationSelected = onLocationSelected,
+                        onLocationsSelected = onLocationsSelected,
+                        onAllLocationsSelected = onAllLocationsSelected,
+                    )
+                }
             }
             item {
                 Row(
@@ -257,6 +283,76 @@ fun RuneCompanionApp(
             }
             item {
                 Attribution(onOpenStarMiners)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompanionControlsCard(
+    expanded: Boolean,
+    running: Boolean,
+    overlayPermissionGranted: Boolean,
+    alertsEnabled: Boolean,
+    hideDangerousWorlds: Boolean,
+    selectedLocations: Int,
+    totalLocations: Int,
+    onOverlayAction: () -> Unit,
+    onExpandedChanged: (Boolean) -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = RuneSurfaceRaised),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "Companion controls",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                listOf(
+                    if (running) "Overlay active" else "Overlay stopped",
+                    if (alertsEnabled) "alerts on" else "alerts off",
+                    if (hideDangerousWorlds) "safe worlds" else "all world types",
+                    "$selectedLocations/$totalLocations sites",
+                ).joinToString(" • "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = onOverlayAction,
+                    colors = if (running) {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    },
+                ) {
+                    Text(
+                        when {
+                            running -> "Stop overlay"
+                            !overlayPermissionGranted -> "Allow overlay"
+                            else -> "Start overlay"
+                        },
+                    )
+                }
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = { onExpandedChanged(!expanded) },
+                ) {
+                    Text(if (expanded) "Done" else "Manage")
+                }
             }
         }
     }
@@ -351,7 +447,7 @@ private fun OverlayCard(
     onModuleToggled: (OverlayModule) -> Unit,
     onModuleSelected: (OverlayModule) -> Unit,
 ) {
-    var configuring by remember { mutableStateOf(false) }
+    var configuring by rememberSaveable { mutableStateOf(false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = RuneSurfaceRaised),
         shape = RoundedCornerShape(18.dp),
@@ -505,7 +601,11 @@ private fun StarCard(
     featureData: FeatureData,
     onOpenRouteGuide: () -> Unit,
 ) {
-    var routeExpanded by remember { mutableStateOf(false) }
+    var routeExpanded by rememberSaveable(
+        star.world,
+        star.locationId,
+        star.calledAt,
+    ) { mutableStateOf(false) }
     val guide = remember(star.locationName) {
         StarTravelCatalog.guideFor(star.locationName)
     }

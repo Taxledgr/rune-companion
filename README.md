@@ -5,6 +5,24 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.5.1
+
+- Network refreshes now run only while their screens are useful, share cached
+  item data, ignore duplicate requests, and retain the last successful star feed
+  during temporary connection failures.
+- Price search waits briefly for typing to finish and discards outdated results.
+- Tabs preserve their scroll position and in-progress form text when switching.
+- Shooting Star controls are condensed into a quick status card so filters and
+  live results appear much sooner; timer and journal builders stay collapsed
+  until requested.
+- Backup imports reload saved accounts, timers, filters, and overlay settings
+  immediately without restarting the app.
+- The floating bubble opens on the right side by default instead of covering app
+  headings, and the overlay skips Star Miners requests when neither Stars nor
+  star alerts are enabled.
+- Version 1.5.1 uses Android version code 18 and updates earlier versions in
+  place without deleting saved profiles, settings, or journals.
+
 ## Version 1.5
 
 - The floating window is now a configurable Rune Companion dashboard instead

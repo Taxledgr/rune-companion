@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.features.FeatureState
@@ -59,6 +60,7 @@ fun RuneCompanionShell(
     starsContent: @Composable () -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(CompanionTab.STARS) }
+    val tabStateHolder = rememberSaveableStateHolder()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -80,48 +82,50 @@ fun RuneCompanionShell(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            when (selectedTab) {
-                CompanionTab.STARS -> starsContent()
-                CompanionTab.TIMERS -> TimersScreen(
-                    state = toolkitState,
-                    notificationPermissionGranted = notificationPermissionGranted,
-                    onRequestNotificationPermission = onRequestNotificationPermission,
-                    onAddReminder = onAddReminder,
-                    onDeleteReminder = onDeleteReminder,
-                    onSetTripLabel = onSetTripLabel,
-                    onToggleTripTimer = onToggleTripTimer,
-                    onResetTripTimer = onResetTripTimer,
-                )
-                CompanionTab.JOURNAL -> JournalScreen(
-                    state = toolkitState,
-                    onSetSlayerTask = onSetSlayerTask,
-                    onAdjustSlayerRemaining = onAdjustSlayerRemaining,
-                    onClearSlayerTask = onClearSlayerTask,
-                    onAddChecklistEntry = onAddChecklistEntry,
-                    onToggleChecklistEntry = onToggleChecklistEntry,
-                    onDeleteChecklistEntry = onDeleteChecklistEntry,
-                )
-                CompanionTab.TOOLS -> ToolsScreen(
-                    state = toolkitState,
-                    onSearchPrices = onSearchPrices,
-                    onAddPriceWatchItem = onAddPriceWatchItem,
-                    onRemovePriceWatchItem = onRemovePriceWatchItem,
-                    onRefreshPrices = onRefreshPrices,
-                    onLookupHiscores = onLookupHiscores,
-                    onOpenUrl = onOpenUrl,
-                )
-                CompanionTab.WIKI -> WikiPortalScreen(onOpenArticle = onOpenUrl)
-                CompanionTab.MORE -> FeatureHubScreen(
-                    state = featureState,
-                    viewModel = featureViewModel,
-                    toolkitState = toolkitState,
-                    onSaveTrackedPlayer = onSaveTrackedPlayer,
-                    onAutoRefreshChanged = onTrackedPlayerAutoRefreshChanged,
-                    onRefreshTrackedPlayer = onRefreshTrackedPlayer,
-                    onResetTrackedPlayerBaseline = onResetTrackedPlayerBaseline,
-                    onClearTrackedPlayer = onClearTrackedPlayer,
-                    onOpenUrl = onOpenUrl,
-                )
+            tabStateHolder.SaveableStateProvider(selectedTab.name) {
+                when (selectedTab) {
+                    CompanionTab.STARS -> starsContent()
+                    CompanionTab.TIMERS -> TimersScreen(
+                        state = toolkitState,
+                        notificationPermissionGranted = notificationPermissionGranted,
+                        onRequestNotificationPermission = onRequestNotificationPermission,
+                        onAddReminder = onAddReminder,
+                        onDeleteReminder = onDeleteReminder,
+                        onSetTripLabel = onSetTripLabel,
+                        onToggleTripTimer = onToggleTripTimer,
+                        onResetTripTimer = onResetTripTimer,
+                    )
+                    CompanionTab.JOURNAL -> JournalScreen(
+                        state = toolkitState,
+                        onSetSlayerTask = onSetSlayerTask,
+                        onAdjustSlayerRemaining = onAdjustSlayerRemaining,
+                        onClearSlayerTask = onClearSlayerTask,
+                        onAddChecklistEntry = onAddChecklistEntry,
+                        onToggleChecklistEntry = onToggleChecklistEntry,
+                        onDeleteChecklistEntry = onDeleteChecklistEntry,
+                    )
+                    CompanionTab.TOOLS -> ToolsScreen(
+                        state = toolkitState,
+                        onSearchPrices = onSearchPrices,
+                        onAddPriceWatchItem = onAddPriceWatchItem,
+                        onRemovePriceWatchItem = onRemovePriceWatchItem,
+                        onRefreshPrices = onRefreshPrices,
+                        onLookupHiscores = onLookupHiscores,
+                        onOpenUrl = onOpenUrl,
+                    )
+                    CompanionTab.WIKI -> WikiPortalScreen(onOpenArticle = onOpenUrl)
+                    CompanionTab.MORE -> FeatureHubScreen(
+                        state = featureState,
+                        viewModel = featureViewModel,
+                        toolkitState = toolkitState,
+                        onSaveTrackedPlayer = onSaveTrackedPlayer,
+                        onAutoRefreshChanged = onTrackedPlayerAutoRefreshChanged,
+                        onRefreshTrackedPlayer = onRefreshTrackedPlayer,
+                        onResetTrackedPlayerBaseline = onResetTrackedPlayerBaseline,
+                        onClearTrackedPlayer = onClearTrackedPlayer,
+                        onOpenUrl = onOpenUrl,
+                    )
+                }
             }
         }
     }

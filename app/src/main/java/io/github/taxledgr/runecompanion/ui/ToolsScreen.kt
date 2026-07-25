@@ -21,7 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,7 +101,7 @@ private fun PriceWatchCard(
     onRemove: (Int) -> Unit,
     onRefresh: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -177,7 +177,7 @@ private fun HiscoreCard(
     state: ToolkitState,
     onLookup: (String) -> Unit,
 ) {
-    var player by remember { mutableStateOf("") }
+    var player by rememberSaveable { mutableStateOf("") }
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -215,8 +215,8 @@ private fun HiscoreCard(
 
 @Composable
 private fun XpCalculatorCard() {
-    var currentLevel by remember { mutableStateOf("1") }
-    var targetLevel by remember { mutableStateOf("99") }
+    var currentLevel by rememberSaveable { mutableStateOf("1") }
+    var targetLevel by rememberSaveable { mutableStateOf("99") }
     val current = currentLevel.toIntOrNull()?.coerceIn(1, 126) ?: 1
     val target = targetLevel.toIntOrNull()?.coerceIn(1, 126) ?: current
     val remaining = (xpForLevel(target) - xpForLevel(current)).coerceAtLeast(0)
@@ -229,8 +229,8 @@ private fun XpCalculatorCard() {
 
 @Composable
 private fun DropCalculatorCard() {
-    var denominator by remember { mutableStateOf("5000") }
-    var attempts by remember { mutableStateOf("1000") }
+    var denominator by rememberSaveable { mutableStateOf("5000") }
+    var attempts by rememberSaveable { mutableStateOf("1000") }
     val dropRate = denominator.toIntOrNull() ?: 0
     val kills = attempts.toIntOrNull() ?: 0
     val chance = dropChancePercent(kills, dropRate)
@@ -251,8 +251,8 @@ private fun DropCalculatorCard() {
 
 @Composable
 private fun SupplyCalculatorCard() {
-    var quantity by remember { mutableStateOf("100") }
-    var unitPrice by remember { mutableStateOf("500") }
+    var quantity by rememberSaveable { mutableStateOf("100") }
+    var unitPrice by rememberSaveable { mutableStateOf("500") }
     val total = (quantity.toLongOrNull() ?: 0) * (unitPrice.toLongOrNull() ?: 0)
     CalculatorCard("Supply cost calculator") {
         NumberField("Quantity", quantity) { quantity = it }

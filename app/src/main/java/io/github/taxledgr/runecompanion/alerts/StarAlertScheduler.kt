@@ -31,7 +31,7 @@ object StarAlertScheduler {
 
         workManager.enqueueUniquePeriodicWork(
             PERIODIC_WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.KEEP,
             periodicWork,
         )
 

@@ -11,6 +11,7 @@ import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
 import io.github.taxledgr.runecompanion.widget.RuneCompanionWidget
 import java.time.LocalDate
 import java.util.UUID
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,18 +28,32 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     private val priceClient = PriceClient()
     private val _state = MutableStateFlow(FeatureState(data = loadPersistedData()))
     val state: StateFlow<FeatureState> = _state.asStateFlow()
+    private var foregroundRefreshJob: Job? = null
+    private var priceRefreshJob: Job? = null
+    private var priceSearchJob: Job? = null
+    private var latestPriceQuery = ""
+    private val refreshingAccounts = mutableSetOf<String>()
+    private var appInForeground = false
 
     init {
         GeAlertScheduler.sync(application, _state.value.data.geAlerts.isNotEmpty())
         FeatureRefreshScheduler.sync(application, _state.value.data.accounts.any { it.autoRefresh })
-        if (_state.value.data.accounts.any { it.autoRefresh }) refreshAllAccounts()
-        if (_state.value.data.geAlerts.isNotEmpty() || _state.value.data.portfolio.isNotEmpty()) {
-            refreshPrices()
-        }
-        viewModelScope.launch {
+    }
+
+    fun setAppInForeground(inForeground: Boolean) {
+        if (appInForeground == inForeground) return
+        appInForeground = inForeground
+        foregroundRefreshJob?.cancel()
+        foregroundRefreshJob = null
+        if (!inForeground) return
+
+        reloadFromDisk()
+        refreshStaleAccounts()
+        refreshPrices()
+        foregroundRefreshJob = viewModelScope.launch {
             while (isActive) {
                 delay(FOREGROUND_REFRESH_MILLIS)
-                refreshAllAccounts()
+                refreshStaleAccounts()
                 refreshPrices()
             }
         }
@@ -90,35 +105,50 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun refreshStaleAccounts() {
+        val now = System.currentTimeMillis()
+        _state.value.data.accounts
+            .filter { it.needsRefresh(now, FOREGROUND_REFRESH_MILLIS) }
+            .forEach { refreshAccount(it.username) }
+    }
+
     fun refreshAccount(username: String) {
+        val refreshKey = username.trim().lowercase()
+        if (refreshKey.isBlank() || !refreshingAccounts.add(refreshKey)) return
         viewModelScope.launch {
             _state.update { it.copy(loading = true, message = null) }
-            runCatching { hiscoreClient.lookup(username) }
-                .onSuccess { summary ->
-                    val snapshot = StatSnapshot(System.currentTimeMillis(), summary)
-                    updateData { data ->
-                        data.copy(accounts = data.accounts.map { account ->
-                            if (!account.username.equals(username, true)) {
-                                account
-                            } else {
-                                account.copy(
-                                    snapshots = compactSnapshots(account.snapshots + snapshot),
-                                )
-                            }
-                        })
+            try {
+                runCatching { hiscoreClient.lookup(username) }
+                    .onSuccess { summary ->
+                        val snapshot = StatSnapshot(System.currentTimeMillis(), summary)
+                        updateData { data ->
+                            data.copy(accounts = data.accounts.map { account ->
+                                if (!account.username.equals(username, true)) {
+                                    account
+                                } else {
+                                    account.copy(
+                                        snapshots = compactSnapshots(
+                                            account.snapshots + snapshot,
+                                        ),
+                                    )
+                                }
+                            })
+                        }
+                        _state.update {
+                            it.copy(message = "Updated ${summary.player}")
+                        }
                     }
-                    _state.update {
-                        it.copy(loading = false, message = "Updated ${summary.player}")
+                    .onFailure { error ->
+                        _state.update {
+                            it.copy(
+                                message = error.message ?: "Could not refresh hiscores",
+                            )
+                        }
                     }
-                }
-                .onFailure { error ->
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            message = error.message ?: "Could not refresh hiscores",
-                        )
-                    }
-                }
+            } finally {
+                refreshingAccounts.remove(refreshKey)
+                _state.update { it.copy(loading = refreshingAccounts.isNotEmpty()) }
+            }
         }
     }
 
@@ -149,19 +179,24 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun searchPrices(query: String) {
-        if (query.trim().length < 2) {
+        val cleanQuery = query.trim()
+        latestPriceQuery = cleanQuery
+        priceSearchJob?.cancel()
+        if (cleanQuery.length < 2) {
             _state.update { it.copy(priceSearchResults = emptyList()) }
             return
         }
-        viewModelScope.launch {
-            _state.update { it.copy(loading = true, message = null) }
-            runCatching { priceClient.search(query) }
+        priceSearchJob = viewModelScope.launch {
+            delay(PRICE_SEARCH_DEBOUNCE_MS)
+            runCatching { priceClient.search(cleanQuery) }
                 .onSuccess { results ->
-                    _state.update { it.copy(loading = false, priceSearchResults = results) }
+                    if (cleanQuery != latestPriceQuery) return@onSuccess
+                    _state.update { it.copy(priceSearchResults = results) }
                 }
                 .onFailure { error ->
+                    if (cleanQuery != latestPriceQuery) return@onFailure
                     _state.update {
-                        it.copy(loading = false, message = error.message ?: "Price search failed")
+                        it.copy(message = error.message ?: "Price search failed")
                     }
                 }
         }
@@ -210,8 +245,8 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         val items = (data.geAlerts.map { PriceWatchItem(it.itemId, it.itemName) } +
             data.portfolio.map { PriceWatchItem(it.itemId, it.itemName) })
             .distinctBy { it.id }
-        if (items.isEmpty()) return
-        viewModelScope.launch {
+        if (items.isEmpty() || priceRefreshJob?.isActive == true) return
+        priceRefreshJob = viewModelScope.launch {
             runCatching { priceClient.latest(items) }
                 .onSuccess { latest ->
                     val byId = latest.associateBy { it.id }
@@ -781,9 +816,17 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
 
     fun importBackup(payload: String, passphrase: String) {
         backupManager.importEncrypted(payload, passphrase)
+        val restored = preferences.load()
+        val restoreGeneration = _state.value.restoreGeneration + 1
         _state.value = FeatureState(
-            data = preferences.load(),
-            message = "Backup imported. Restart the app to reload Stars, Timers, and Settings.",
+            data = restored,
+            message = "Backup imported and reloaded.",
+            restoreGeneration = restoreGeneration,
+        )
+        GeAlertScheduler.sync(getApplication(), restored.geAlerts.isNotEmpty())
+        FeatureRefreshScheduler.sync(
+            getApplication(),
+            restored.accounts.any { it.autoRefresh },
         )
     }
 
@@ -856,5 +899,6 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
 
     private companion object {
         const val FOREGROUND_REFRESH_MILLIS = 10 * 60_000L
+        const val PRICE_SEARCH_DEBOUNCE_MS = 300L
     }
 }
