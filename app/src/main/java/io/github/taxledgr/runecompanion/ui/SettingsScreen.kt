@@ -74,11 +74,11 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        "Choose a focus, start screen, navigation tabs, and pinned quick-access tools.",
+                        "Switch Activity Profiles or customise their start screen, overlay, navigation, and quick access.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Button(onClick = onCustomizeExperience) {
-                        Text("Customize experience")
+                        Text("Activity Profiles & customization")
                     }
                 }
             }

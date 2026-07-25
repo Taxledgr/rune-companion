@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,15 +34,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.taxledgr.runecompanion.personalization.AppTab
+import io.github.taxledgr.runecompanion.personalization.ActivityProfile
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
 import io.github.taxledgr.runecompanion.personalization.ExperiencePreset
 import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
 
 @Composable
 fun PersonalizationScreen(
     settings: PersonalizationSettings,
+    activityProfiles: ActivityProfileState,
     onSettingsChanged: (PersonalizationSettings) -> Unit,
+    onActivityProfileSelected: (String) -> Unit,
+    onActivityProfileCreated: (String) -> Unit,
+    onActivityProfileRenamed: (String) -> Unit,
+    onActivityProfileDeleted: () -> Unit,
 ) {
     var featureSearch by rememberSaveable { mutableStateOf("") }
+    var newProfileName by rememberSaveable { mutableStateOf("") }
+    var activeProfileName by rememberSaveable {
+        mutableStateOf(activityProfiles.activeProfile.name)
+    }
+    LaunchedEffect(activityProfiles.activeProfileId) {
+        activeProfileName = activityProfiles.activeProfile.name
+    }
     val pinnedFeatures = settings.pinnedFeatureIds.mapNotNull { id ->
         CompanionFeature.entries.firstOrNull { it.name == id }
     }
@@ -70,7 +85,7 @@ fun PersonalizationScreen(
             ScreenHeader(
                 eyebrow = "YOUR EXPERIENCE",
                 title = "Customize Rune Companion",
-                subtitle = "Choose what opens first, what stays in reach, and which tools matter to you.",
+                subtitle = "Switch complete activity setups, then tune what opens first and stays in reach.",
             )
         }
         item {
@@ -83,10 +98,14 @@ fun PersonalizationScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Current start screen", fontWeight = FontWeight.Bold)
-                    Text(startLabel, style = MaterialTheme.typography.headlineSmall)
+                    Text("Active activity profile", fontWeight = FontWeight.Bold)
                     Text(
-                        "${settings.navigationTabs.size} navigation tabs • " +
+                        "${activityProfiles.activeProfile.symbol} " +
+                            activityProfiles.activeProfile.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    Text(
+                        "Opens to $startLabel • ${settings.navigationTabs.size} tabs • " +
                             "${settings.pinnedFeatureIds.size} pinned tools",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -94,9 +113,91 @@ fun PersonalizationScreen(
             }
         }
         item {
-            Text("Choose a focus", style = MaterialTheme.typography.titleMedium)
+            Text("Switch activity", style = MaterialTheme.typography.titleMedium)
             Text(
-                "A preset is only a starting point. Every choice remains editable below.",
+                "Each profile remembers its navigation, shortcuts, overlay, character, and Star filters.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(activityProfiles.profiles, key = ActivityProfile::id) { profile ->
+                    FilterChip(
+                        selected = profile.id == activityProfiles.activeProfileId,
+                        onClick = { onActivityProfileSelected(profile.id) },
+                        label = { Text("${profile.symbol} ${profile.name}") },
+                    )
+                }
+            }
+        }
+        item {
+            Card {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Manage this profile", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = activeProfileName,
+                        onValueChange = {
+                            activeProfileName = it.take(ActivityProfile.MAX_NAME_LENGTH)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Profile name") },
+                        singleLine = true,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = { onActivityProfileRenamed(activeProfileName) },
+                            modifier = Modifier.weight(1f),
+                            enabled = activeProfileName.isNotBlank() &&
+                                activeProfileName.trim() !=
+                                activityProfiles.activeProfile.name,
+                        ) {
+                            Text("Rename")
+                        }
+                        OutlinedButton(
+                            onClick = onActivityProfileDeleted,
+                            modifier = Modifier.weight(1f),
+                            enabled = activityProfiles.profiles.size > 1,
+                        ) {
+                            Text("Delete")
+                        }
+                    }
+                    OutlinedTextField(
+                        value = newProfileName,
+                        onValueChange = {
+                            newProfileName = it.take(ActivityProfile.MAX_NAME_LENGTH)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("New profile name") },
+                        supportingText = {
+                            Text("Copies the current setup so you can customise it separately.")
+                        },
+                        singleLine = true,
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            onActivityProfileCreated(newProfileName)
+                            newProfileName = ""
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = newProfileName.isNotBlank() &&
+                            activityProfiles.profiles.size <
+                            ActivityProfileState.MAX_PROFILES,
+                    ) {
+                        Text("Save current setup as new profile")
+                    }
+                }
+            }
+        }
+        item {
+            Text("Apply a focus layout", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "This replaces the layout inside the active profile. Your other profiles are unchanged.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -121,7 +222,7 @@ fun PersonalizationScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                "Apply preset",
+                                "Apply to current profile",
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,
                             )

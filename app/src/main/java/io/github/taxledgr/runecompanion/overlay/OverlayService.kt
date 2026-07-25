@@ -14,6 +14,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -56,6 +57,11 @@ import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
 import io.github.taxledgr.runecompanion.features.StarTravelPlanner
+import io.github.taxledgr.runecompanion.personalization.ActivityProfile
+import io.github.taxledgr.runecompanion.personalization.ActivityProfilePreferences
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileTemplate
+import io.github.taxledgr.runecompanion.personalization.ActivityStarFilters
 import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
 import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
 import io.github.taxledgr.runecompanion.toolkit.ToolkitPreferences
@@ -96,6 +102,7 @@ class OverlayService :
     private val toolkitPreferences by lazy { ToolkitPreferences(this) }
     private val overlayPreferences by lazy { OverlayPreferences(this) }
     private val personalizationPreferences by lazy { PersonalizationPreferences(this) }
+    private val activityProfilePreferences by lazy { ActivityProfilePreferences(this) }
     private val editorViewModelFactory by lazy {
         ViewModelProvider.AndroidViewModelFactory.getInstance(application)
     }
@@ -114,6 +121,7 @@ class OverlayService :
     private var panelView: View? = null
     private var bubbleView: TextView? = null
     private var editorView: ComposeView? = null
+    private var profileSwitcherView: View? = null
     private var starContainer: LinearLayout? = null
     private var starScroll: ScrollView? = null
     private var statusText: TextView? = null
@@ -127,6 +135,11 @@ class OverlayService :
     private var panelY = 0
     private var bubbleX: Int? = null
     private var bubbleY: Int? = null
+    private var profileSwitcherOpenedFromBubble = false
+    private var activityProfiles = ActivityProfileState(
+        profiles = listOf(ActivityProfileTemplate.SHOOTING_STARS.profile()),
+        activeProfileId = ActivityProfileTemplate.SHOOTING_STARS.id,
+    )
     private val mapViews = mutableListOf<WebView>()
 
     override fun onCreate() {
@@ -152,11 +165,17 @@ class OverlayService :
             return START_NOT_STICKY
         }
 
+        val previousProfileId = activityProfiles.activeProfileId
         overlaySettings = overlayPreferences.load()
+        activityProfiles = loadActivityProfiles()
         if (overlayView == null) {
             showOverlay()
         } else if (intent?.action == ACTION_RELOAD) {
             expandedStarId = null
+            applyOverlayAppearance(
+                useStoredPlacement =
+                    previousProfileId != activityProfiles.activeProfileId,
+            )
             renderActiveModule()
         }
         _running.value = true
@@ -173,18 +192,19 @@ class OverlayService :
             if (editorView != null) {
                 resizeEditorWindow(root)
             } else {
-                clampOverlayPosition(overlayParams)
-                windowManager.updateViewLayout(root, overlayParams)
+                applyStoredPlacement()
             }
         }
     }
 
     override fun onDestroy() {
+        if (editorView != null) captureActiveProfile()
         refreshJob?.cancel()
         serviceScope.cancel()
         destroyMapViews()
         editorView?.disposeComposition()
         editorView = null
+        profileSwitcherView = null
         overlayView?.let { view ->
             runCatching { windowManager.removeView(view) }
         }
@@ -239,6 +259,11 @@ class OverlayService :
         header.addView(
             actionButton("✎", "Edit this section") {
                 openEditor()
+            },
+        )
+        header.addView(
+            actionButton("◆", "Switch activity profile") {
+                showProfileSwitcher(openedFromBubble = false)
             },
         )
         header.addView(
@@ -301,7 +326,7 @@ class OverlayService :
         )
 
         overlayParams = WindowManager.LayoutParams(
-            dp(PANEL_WIDTH_DP),
+            dp(overlaySettings.compactWidthDp),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -309,25 +334,34 @@ class OverlayService :
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(14)
-            y = dp(100)
+            x = 0
+            y = 0
         }
 
         panelView = panel
         bubbleView = bubble
-        makeDraggable(title, overlayParams)
+        makeDraggable(
+            handle = title,
+            params = overlayParams,
+            onDragEnd = ::savePanelPlacement,
+        )
         makeDraggable(
             handle = bubble,
             params = overlayParams,
             onTap = ::restorePanel,
+            onLongPress = {
+                showProfileSwitcher(openedFromBubble = true)
+            },
             snapToEdge = true,
             onDragEnd = {
                 bubbleX = overlayParams.x
                 bubbleY = overlayParams.y
+                saveBubblePlacement()
             },
         )
         windowManager.addView(root, overlayParams)
         overlayView = root
+        applyOverlayAppearance(useStoredPlacement = true)
         renderActiveModule()
     }
 
@@ -374,7 +408,7 @@ class OverlayService :
         val currentIndex = modules.indexOf(overlaySettings.selectedModule).coerceAtLeast(0)
         val nextIndex = (currentIndex + delta).mod(modules.size)
         overlaySettings = overlaySettings.copy(selectedModule = modules[nextIndex]).normalized()
-        overlayPreferences.save(overlaySettings)
+        saveOverlaySettingsToActiveProfile()
         expandedStarId = null
         renderActiveModule()
     }
@@ -707,6 +741,7 @@ class OverlayService :
         handle: View,
         params: WindowManager.LayoutParams,
         onTap: (() -> Unit)? = null,
+        onLongPress: (() -> Unit)? = null,
         snapToEdge: Boolean = false,
         onDragEnd: (() -> Unit)? = null,
     ) {
@@ -715,6 +750,7 @@ class OverlayService :
         var touchX = 0f
         var touchY = 0f
         var moved = false
+        var downAt = 0L
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         handle.setOnClickListener { onTap?.invoke() }
         handle.setOnTouchListener { _, event ->
@@ -725,6 +761,7 @@ class OverlayService :
                     touchX = event.rawX
                     touchY = event.rawY
                     moved = false
+                    downAt = SystemClock.elapsedRealtime()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -745,11 +782,18 @@ class OverlayService :
                     if (moved) {
                         if (snapToEdge) snapBubbleToEdge(params)
                         onDragEnd?.invoke()
+                    } else if (
+                        onLongPress != null &&
+                        SystemClock.elapsedRealtime() - downAt >=
+                        ViewConfiguration.getLongPressTimeout()
+                    ) {
+                        onLongPress()
                     } else {
                         handle.performClick()
                     }
                     true
                 }
+                MotionEvent.ACTION_CANCEL -> true
                 else -> false
             }
         }
@@ -782,7 +826,7 @@ class OverlayService :
         if (panel.visibility == View.VISIBLE) return
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
-        overlayParams.width = dp(PANEL_WIDTH_DP)
+        overlayParams.width = dp(overlaySettings.compactWidthDp)
         overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         overlayParams.x = panelX
         overlayParams.y = panelY
@@ -823,9 +867,14 @@ class OverlayService :
                     initialPersonalizationSettings = personalizationPreferences.load(),
                     onOverlaySettingsChanged = { settings ->
                         overlaySettings = settings.normalized()
-                        overlayPreferences.save(overlaySettings)
+                        saveOverlaySettingsToActiveProfile()
                     },
-                    onPersonalizationChanged = personalizationPreferences::save,
+                    onPersonalizationChanged = { settings ->
+                        personalizationPreferences.save(settings)
+                        updateActiveProfile {
+                            it.copy(personalization = settings)
+                        }
+                    },
                     onClose = ::closeEditor,
                     onStopOverlay = ::stopSelf,
                 )
@@ -854,6 +903,7 @@ class OverlayService :
 
     private fun closeEditor() {
         val root = overlayView as? FrameLayout ?: return
+        captureActiveProfile()
         editorView?.let { editor ->
             editor.disposeComposition()
             root.removeView(editor)
@@ -867,7 +917,7 @@ class OverlayService :
         overlayParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         overlayParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-        overlayParams.width = dp(PANEL_WIDTH_DP)
+        overlayParams.width = dp(overlaySettings.compactWidthDp)
         overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         overlayParams.x = panelX
         overlayParams.y = panelY
@@ -875,6 +925,290 @@ class OverlayService :
         windowManager.updateViewLayout(root, overlayParams)
         expandedStarId = null
         renderActiveModule()
+    }
+
+    private fun showProfileSwitcher(openedFromBubble: Boolean) {
+        if (editorView != null || profileSwitcherView != null) return
+        val root = overlayView as? FrameLayout ?: return
+        activityProfiles = loadActivityProfiles()
+        profileSwitcherOpenedFromBubble = openedFromBubble
+        panelView?.visibility = View.GONE
+        bubbleView?.visibility = View.GONE
+
+        val switcher = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = panelBackground()
+            elevation = dp(12).toFloat()
+            alpha = overlaySettings.opacityPercent / 100f
+        }
+        val heading = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        heading.addView(
+            textView("ACTIVITY PROFILES", 14f, Color.rgb(244, 201, 93)).apply {
+                setTypeface(typeface, Typeface.BOLD)
+            },
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        heading.addView(
+            actionButton("×", "Close activity profiles") {
+                hideProfileSwitcher()
+            },
+        )
+        switcher.addView(heading)
+        switcher.addView(
+            textView(
+                "Switch the whole Rune Companion setup",
+                12f,
+                Color.rgb(185, 201, 212),
+            ).apply {
+                setPadding(0, dp(4), 0, dp(8))
+            },
+        )
+        val profileList = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        activityProfiles.profiles.forEach { profile ->
+            val active = profile.id == activityProfiles.activeProfileId
+            profileList.addView(
+                textView(
+                    "${if (active) "●" else "○"}  ${profile.symbol}  ${profile.name}",
+                    15f,
+                    if (active) Color.rgb(110, 218, 208) else Color.WHITE,
+                ).apply {
+                    setPadding(dp(8), dp(10), dp(8), dp(10))
+                    contentDescription = if (active) {
+                        "${profile.name}, active activity profile"
+                    } else {
+                        "Switch to ${profile.name}"
+                    }
+                    setOnClickListener {
+                        activateActivityProfile(profile.id)
+                    }
+                },
+            )
+        }
+        switcher.addView(
+            ScrollView(this).apply {
+                isFillViewport = false
+                isVerticalScrollBarEnabled = true
+                addView(
+                    profileList,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (displayBounds().height() * PROFILE_SWITCHER_HEIGHT_FRACTION)
+                    .toInt()
+                    .coerceAtMost(dp(activityProfiles.profiles.size * 48)),
+            ),
+        )
+        root.addView(
+            switcher,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+        profileSwitcherView = switcher
+        overlayParams.width = dp(PROFILE_SWITCHER_WIDTH_DP)
+        overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        clampOverlayPosition(overlayParams)
+        windowManager.updateViewLayout(root, overlayParams)
+    }
+
+    private fun hideProfileSwitcher() {
+        val root = overlayView as? FrameLayout ?: return
+        profileSwitcherView?.let(root::removeView)
+        profileSwitcherView = null
+        if (profileSwitcherOpenedFromBubble) {
+            bubbleView?.visibility = View.VISIBLE
+            panelView?.visibility = View.GONE
+            overlayParams.width = dp(BUBBLE_SIZE_DP)
+            overlayParams.height = dp(BUBBLE_SIZE_DP)
+            overlayParams.x = bubbleX ?: overlayParams.x
+            overlayParams.y = bubbleY ?: overlayParams.y
+        } else {
+            bubbleView?.visibility = View.GONE
+            panelView?.visibility = View.VISIBLE
+            overlayParams.width = dp(overlaySettings.compactWidthDp)
+            overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+            overlayParams.x = panelX
+            overlayParams.y = panelY
+        }
+        clampOverlayPosition(overlayParams)
+        windowManager.updateViewLayout(root, overlayParams)
+    }
+
+    private fun activateActivityProfile(profileId: String) {
+        if (profileId == activityProfiles.activeProfileId) {
+            hideProfileSwitcher()
+            return
+        }
+        captureActiveProfile()
+        val selected = activityProfiles.select(profileId)
+        activityProfiles = selected
+        activityProfilePreferences.save(selected)
+        val profile = selected.activeProfile
+        personalizationPreferences.save(profile.personalization)
+        overlaySettings = profile.overlay.normalized()
+        overlayPreferences.save(overlaySettings)
+        filterPreferences.save(
+            profile.starFilters.applyTo(filterPreferences.load()),
+        )
+        val features = featurePreferences.load()
+        val account = profile.selectedAccount?.takeIf { username ->
+            features.accounts.any { it.username.equals(username, ignoreCase = true) }
+        }
+        if (features.selectedAccount != account) {
+            featurePreferences.save(features.copy(selectedAccount = account))
+        }
+        expandedStarId = null
+        applyStoredPlacement(updateWindow = false)
+        hideProfileSwitcher()
+        updateBubble(overlaySettings.selectedModule, activeBadgeCount)
+        renderActiveModule()
+    }
+
+    private fun loadActivityProfiles(): ActivityProfileState =
+        activityProfilePreferences.load(
+            legacyPersonalization = personalizationPreferences.load(),
+            legacyOverlay = overlayPreferences.load(),
+            selectedAccount = featurePreferences.load().selectedAccount,
+            legacyFilters = filterPreferences.load(),
+        )
+
+    private fun captureActiveProfile() {
+        val filters = filterPreferences.load()
+        activityProfiles = activityProfiles.updateActive { active ->
+            active.copy(
+                personalization = personalizationPreferences.load(),
+                overlay = overlaySettings,
+                selectedAccount = featurePreferences.load().selectedAccount,
+                starFilters = ActivityStarFilters.from(filters),
+            )
+        }
+        activityProfilePreferences.save(activityProfiles)
+    }
+
+    private fun updateActiveProfile(
+        transform: (ActivityProfile) -> ActivityProfile,
+    ) {
+        activityProfiles = loadActivityProfiles().updateActive(transform)
+        activityProfilePreferences.save(activityProfiles)
+    }
+
+    private fun saveOverlaySettingsToActiveProfile() {
+        overlaySettings = overlaySettings.normalized()
+        overlayPreferences.save(overlaySettings)
+        updateActiveProfile { it.copy(overlay = overlaySettings) }
+        applyOverlayAppearance(useStoredPlacement = false)
+    }
+
+    private fun currentPlacement(): OverlayPlacement =
+        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            overlaySettings.landscapePlacement
+        } else {
+            overlaySettings.portraitPlacement
+        }
+
+    private fun withCurrentPlacement(placement: OverlayPlacement): OverlaySettings =
+        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            overlaySettings.copy(landscapePlacement = placement)
+        } else {
+            overlaySettings.copy(portraitPlacement = placement)
+        }.normalized()
+
+    private fun applyStoredPlacement(updateWindow: Boolean = true) {
+        val root = overlayView as? FrameLayout ?: return
+        val bounds = displayBounds()
+        val placement = currentPlacement()
+        val panelMaxX =
+            (bounds.width() - dp(overlaySettings.compactWidthDp)).coerceAtLeast(0)
+        val panelMaxY =
+            (bounds.height() - dp(MINIMUM_VISIBLE_HEIGHT_DP)).coerceAtLeast(0)
+        val bubbleMaxX = (bounds.width() - dp(BUBBLE_SIZE_DP)).coerceAtLeast(0)
+        val bubbleMaxY = (bounds.height() - dp(BUBBLE_SIZE_DP)).coerceAtLeast(0)
+        panelX = (placement.panelXFraction * panelMaxX).toInt()
+        panelY = (placement.panelYFraction * panelMaxY).toInt()
+        bubbleX = (placement.bubbleXFraction * bubbleMaxX).toInt()
+        bubbleY = (placement.bubbleYFraction * bubbleMaxY).toInt()
+        when {
+            profileSwitcherView != null -> {
+                overlayParams.width = dp(PROFILE_SWITCHER_WIDTH_DP)
+            }
+            bubbleView?.visibility == View.VISIBLE -> {
+                overlayParams.width = dp(BUBBLE_SIZE_DP)
+                overlayParams.height = dp(BUBBLE_SIZE_DP)
+                overlayParams.x = requireNotNull(bubbleX)
+                overlayParams.y = requireNotNull(bubbleY)
+            }
+            else -> {
+                overlayParams.width = dp(overlaySettings.compactWidthDp)
+                overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+                overlayParams.x = panelX
+                overlayParams.y = panelY
+            }
+        }
+        clampOverlayPosition(overlayParams)
+        if (updateWindow) windowManager.updateViewLayout(root, overlayParams)
+    }
+
+    private fun applyOverlayAppearance(useStoredPlacement: Boolean) {
+        panelView?.alpha = overlaySettings.opacityPercent / 100f
+        bubbleView?.alpha = overlaySettings.opacityPercent / 100f
+        profileSwitcherView?.alpha = overlaySettings.opacityPercent / 100f
+        if (editorView != null) return
+        if (useStoredPlacement) {
+            applyStoredPlacement()
+            return
+        }
+        val root = overlayView as? FrameLayout ?: return
+        if (
+            panelView?.visibility == View.VISIBLE &&
+            profileSwitcherView == null
+        ) {
+            overlayParams.width = dp(overlaySettings.compactWidthDp)
+            overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+            panelX = overlayParams.x
+            panelY = overlayParams.y
+        }
+        clampOverlayPosition(overlayParams)
+        windowManager.updateViewLayout(root, overlayParams)
+    }
+
+    private fun savePanelPlacement() {
+        panelX = overlayParams.x
+        panelY = overlayParams.y
+        val bounds = displayBounds()
+        val maxX = (bounds.width() - dp(overlaySettings.compactWidthDp)).coerceAtLeast(1)
+        val maxY = (bounds.height() - dp(MINIMUM_VISIBLE_HEIGHT_DP)).coerceAtLeast(1)
+        val placement = currentPlacement().copy(
+            panelXFraction = panelX.toFloat() / maxX,
+            panelYFraction = panelY.toFloat() / maxY,
+        )
+        overlaySettings = withCurrentPlacement(placement)
+        saveOverlaySettingsToActiveProfile()
+    }
+
+    private fun saveBubblePlacement() {
+        val x = bubbleX ?: return
+        val y = bubbleY ?: return
+        val bounds = displayBounds()
+        val maxX = (bounds.width() - dp(BUBBLE_SIZE_DP)).coerceAtLeast(1)
+        val maxY = (bounds.height() - dp(BUBBLE_SIZE_DP)).coerceAtLeast(1)
+        val placement = currentPlacement().copy(
+            bubbleXFraction = x.toFloat() / maxX,
+            bubbleYFraction = y.toFloat() / maxY,
+        )
+        overlaySettings = withCurrentPlacement(placement)
+        saveOverlaySettingsToActiveProfile()
     }
 
     private fun updateBubble(module: OverlayModule, count: Int) {
@@ -888,7 +1222,7 @@ class OverlayService :
         val bounds = displayBounds()
         val width = when {
             params.width > 0 -> params.width
-            panelView?.visibility == View.VISIBLE -> dp(PANEL_WIDTH_DP)
+            panelView?.visibility == View.VISIBLE -> dp(overlaySettings.compactWidthDp)
             else -> dp(BUBBLE_SIZE_DP)
         }
         params.x = params.x.coerceIn(0, (bounds.width() - width).coerceAtLeast(0))
@@ -1015,7 +1349,8 @@ class OverlayService :
         private const val MAX_OVERLAY_STARS = 5
         private const val MAX_OVERLAY_ENTRIES = 8
         private const val COMPACT_ENTRY_LIMIT = 5
-        private const val PANEL_WIDTH_DP = 310
+        private const val PROFILE_SWITCHER_WIDTH_DP = 300
+        private const val PROFILE_SWITCHER_HEIGHT_FRACTION = 0.62f
         private const val BUBBLE_SIZE_DP = 58
         private const val BUBBLE_EDGE_INSET_DP = 8
         private const val BUBBLE_DEFAULT_OFFSET_DP = 140

@@ -53,12 +53,32 @@ enum class OverlayModule(
 data class OverlaySettings(
     val enabledModules: Set<OverlayModule> = setOf(OverlayModule.STARS),
     val selectedModule: OverlayModule = OverlayModule.STARS,
+    val moduleOrder: List<OverlayModule> = OverlayModule.entries,
+    val compactWidthDp: Int = DEFAULT_COMPACT_WIDTH_DP,
+    val opacityPercent: Int = DEFAULT_OPACITY_PERCENT,
+    val portraitPlacement: OverlayPlacement = OverlayPlacement(),
+    val landscapePlacement: OverlayPlacement = OverlayPlacement(),
 ) {
     fun normalized(): OverlaySettings {
         val enabled = enabledModules.ifEmpty { setOf(OverlayModule.STARS) }
+        val order = (moduleOrder + OverlayModule.entries).distinct()
         val selected = selectedModule.takeIf(enabled::contains)
-            ?: OverlayModule.entries.first { it in enabled }
-        return copy(enabledModules = enabled, selectedModule = selected)
+            ?: order.first { it in enabled }
+        return copy(
+            enabledModules = enabled,
+            selectedModule = selected,
+            moduleOrder = order,
+            compactWidthDp = compactWidthDp.coerceIn(
+                MIN_COMPACT_WIDTH_DP,
+                MAX_COMPACT_WIDTH_DP,
+            ),
+            opacityPercent = opacityPercent.coerceIn(
+                MIN_OPACITY_PERCENT,
+                MAX_OPACITY_PERCENT,
+            ),
+            portraitPlacement = portraitPlacement.normalized(),
+            landscapePlacement = landscapePlacement.normalized(),
+        )
     }
 
     fun toggled(module: OverlayModule): OverlaySettings {
@@ -73,8 +93,51 @@ data class OverlaySettings(
     fun selected(module: OverlayModule): OverlaySettings =
         if (module in enabledModules) copy(selectedModule = module) else this
 
+    fun moveModule(module: OverlayModule, delta: Int): OverlaySettings {
+        val normalized = normalized()
+        val current = normalized.moduleOrder.indexOf(module)
+        if (current < 0) return normalized
+        val enabledOrder = normalized.orderedModules
+        val enabledIndex = enabledOrder.indexOf(module)
+        if (enabledIndex < 0) return normalized
+        val destinationEnabledIndex =
+            (enabledIndex + delta).coerceIn(0, enabledOrder.lastIndex)
+        if (destinationEnabledIndex == enabledIndex) return normalized
+        val other = enabledOrder[destinationEnabledIndex]
+        val otherIndex = normalized.moduleOrder.indexOf(other)
+        return normalized.copy(
+            moduleOrder = normalized.moduleOrder.toMutableList().apply {
+                this[current] = other
+                this[otherIndex] = module
+            },
+        ).normalized()
+    }
+
     val orderedModules: List<OverlayModule>
-        get() = OverlayModule.entries.filter(enabledModules::contains)
+        get() = moduleOrder.filter(enabledModules::contains)
+
+    companion object {
+        const val DEFAULT_COMPACT_WIDTH_DP = 310
+        const val MIN_COMPACT_WIDTH_DP = 270
+        const val MAX_COMPACT_WIDTH_DP = 380
+        const val DEFAULT_OPACITY_PERCENT = 100
+        const val MIN_OPACITY_PERCENT = 65
+        const val MAX_OPACITY_PERCENT = 100
+    }
+}
+
+data class OverlayPlacement(
+    val panelXFraction: Float = 0.04f,
+    val panelYFraction: Float = 0.12f,
+    val bubbleXFraction: Float = 0.96f,
+    val bubbleYFraction: Float = 0.42f,
+) {
+    fun normalized() = copy(
+        panelXFraction = panelXFraction.coerceIn(0f, 1f),
+        panelYFraction = panelYFraction.coerceIn(0f, 1f),
+        bubbleXFraction = bubbleXFraction.coerceIn(0f, 1f),
+        bubbleYFraction = bubbleYFraction.coerceIn(0f, 1f),
+    )
 }
 
 class OverlayPreferences(context: Context) {
@@ -91,7 +154,26 @@ class OverlayPreferences(context: Context) {
         val selected = preferences.getString(KEY_SELECTED, null)
             ?.let { name -> OverlayModule.entries.firstOrNull { it.name == name } }
             ?: OverlayModule.STARS
-        return OverlaySettings(modules, selected).normalized()
+        return OverlaySettings(
+            enabledModules = modules,
+            selectedModule = selected,
+            moduleOrder = preferences.getString(KEY_ORDER, null)
+                ?.split(",")
+                ?.mapNotNull { name ->
+                    OverlayModule.entries.firstOrNull { it.name == name }
+                }
+                .orEmpty(),
+            compactWidthDp = preferences.getInt(
+                KEY_COMPACT_WIDTH,
+                OverlaySettings.DEFAULT_COMPACT_WIDTH_DP,
+            ),
+            opacityPercent = preferences.getInt(
+                KEY_OPACITY,
+                OverlaySettings.DEFAULT_OPACITY_PERCENT,
+            ),
+            portraitPlacement = loadPlacement(PORTRAIT_PREFIX),
+            landscapePlacement = loadPlacement(LANDSCAPE_PREFIX),
+        ).normalized()
     }
 
     fun save(settings: OverlaySettings) {
@@ -99,13 +181,52 @@ class OverlayPreferences(context: Context) {
         preferences.edit()
             .putStringSet(KEY_MODULES, normalized.enabledModules.map { it.name }.toSet())
             .putString(KEY_SELECTED, normalized.selectedModule.name)
+            .putString(KEY_ORDER, normalized.moduleOrder.joinToString(",") { it.name })
+            .putInt(KEY_COMPACT_WIDTH, normalized.compactWidthDp)
+            .putInt(KEY_OPACITY, normalized.opacityPercent)
+            .putPlacement(PORTRAIT_PREFIX, normalized.portraitPlacement)
+            .putPlacement(LANDSCAPE_PREFIX, normalized.landscapePlacement)
             .apply()
+    }
+
+    private fun loadPlacement(prefix: String) = OverlayPlacement(
+        panelXFraction = preferences.getFloat(
+            "${prefix}_panel_x",
+            OverlayPlacement().panelXFraction,
+        ),
+        panelYFraction = preferences.getFloat(
+            "${prefix}_panel_y",
+            OverlayPlacement().panelYFraction,
+        ),
+        bubbleXFraction = preferences.getFloat(
+            "${prefix}_bubble_x",
+            OverlayPlacement().bubbleXFraction,
+        ),
+        bubbleYFraction = preferences.getFloat(
+            "${prefix}_bubble_y",
+            OverlayPlacement().bubbleYFraction,
+        ),
+    ).normalized()
+
+    private fun android.content.SharedPreferences.Editor.putPlacement(
+        prefix: String,
+        placement: OverlayPlacement,
+    ) = apply {
+        putFloat("${prefix}_panel_x", placement.panelXFraction)
+        putFloat("${prefix}_panel_y", placement.panelYFraction)
+        putFloat("${prefix}_bubble_x", placement.bubbleXFraction)
+        putFloat("${prefix}_bubble_y", placement.bubbleYFraction)
     }
 
     companion object {
         const val PREFERENCES_NAME = "rune_companion_overlay"
         private const val KEY_MODULES = "enabled_modules"
         private const val KEY_SELECTED = "selected_module"
+        private const val KEY_ORDER = "module_order"
+        private const val KEY_COMPACT_WIDTH = "compact_width_dp"
+        private const val KEY_OPACITY = "opacity_percent"
+        private const val PORTRAIT_PREFIX = "portrait"
+        private const val LANDSCAPE_PREFIX = "landscape"
     }
 }
 

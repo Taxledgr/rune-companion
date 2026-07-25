@@ -155,6 +155,21 @@ fun OverlayEditorContent(
                             overlaySettings = updated
                             onOverlaySettingsChanged(updated)
                         },
+                        onOverlayModuleMoved = { selectedModule, delta ->
+                            val updated = overlaySettings.moveModule(selectedModule, delta)
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
+                        onOverlayWidthChanged = { width ->
+                            val updated = overlaySettings.copy(compactWidthDp = width).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
+                        onOverlayOpacityChanged = { opacity ->
+                            val updated = overlaySettings.copy(opacityPercent = opacity).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
                         onOpenStarMiners = { openUrl("https://map.starminers.site/") },
                         onOpenUrl = openUrl,
                     )

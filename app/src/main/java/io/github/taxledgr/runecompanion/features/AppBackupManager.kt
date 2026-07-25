@@ -11,6 +11,7 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 import org.json.JSONArray
 import org.json.JSONObject
+import io.github.taxledgr.runecompanion.personalization.ActivityProfilePreferences
 
 class AppBackupManager(private val context: Context) {
     fun exportEncrypted(passphrase: String): String {
@@ -34,7 +35,16 @@ class AppBackupManager(private val context: Context) {
         require(passphrase.length >= 8) { "Enter the backup passphrase" }
         val root = JSONObject(decrypt(payload.trim(), passphrase))
         PREFERENCE_FILES.forEach { name ->
-            val objectValue = root.optJSONObject(name) ?: return@forEach
+            val objectValue = root.optJSONObject(name)
+            if (objectValue == null) {
+                if (name == ActivityProfilePreferences.PREFERENCES_NAME) {
+                    context.getSharedPreferences(name, Context.MODE_PRIVATE)
+                        .edit()
+                        .clear()
+                        .apply()
+                }
+                return@forEach
+            }
             val editor = context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear()
             objectValue.keys().forEach { key ->
                 when (val value = objectValue.get(key)) {
@@ -103,6 +113,7 @@ class AppBackupManager(private val context: Context) {
             "rune_companion_features",
             "rune_companion_overlay",
             "rune_companion_personalization",
+            ActivityProfilePreferences.PREFERENCES_NAME,
             "shooting_star_alerts",
             "shooting_star_filters",
         )

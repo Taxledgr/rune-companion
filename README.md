@@ -5,6 +5,27 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.8
+
+- **Activity Profiles** save complete reusable setups for Shooting Stars,
+  skilling, questing, Slayer, bossing, or a custom activity.
+- Every profile keeps its own start screen, navigation tabs, pinned helpers,
+  selected OSRS character, Shooting Star safety/location filters, and floating
+  overlay configuration.
+- Five useful profiles are created automatically without replacing the setup
+  from an earlier Rune Companion installation.
+- Profiles can be switched, copied, renamed, and deleted under
+  **More → Customize & settings → Customize experience**.
+- Long-press the minimised floating bubble—or tap **◆** in the compact
+  panel—to switch the complete setup without leaving OSRS.
+- Overlay sections can now be reordered, and each profile remembers its panel
+  size, opacity, selected section, and separate portrait/landscape panel and
+  bubble positions.
+- Activity Profiles are included in encrypted export/import, Android cloud
+  backup, phone-to-phone transfer, and in-place app upgrades.
+- Version 1.8 uses Android version code 21 and updates earlier versions in place
+  without deleting saved accounts, settings, filters, routes, or journals.
+
 ## Version 1.7
 
 - The compact overlay now has an **Edit** action for every configured section.

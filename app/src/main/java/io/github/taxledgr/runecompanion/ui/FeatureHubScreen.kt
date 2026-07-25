@@ -28,6 +28,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +58,8 @@ import io.github.taxledgr.runecompanion.features.tax
 import io.github.taxledgr.runecompanion.features.totalXp
 import io.github.taxledgr.runecompanion.features.xpGained
 import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
+import io.github.taxledgr.runecompanion.personalization.ActivityProfile
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
 import io.github.taxledgr.runecompanion.toolkit.PriceSearchItem
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.toolkit.activity
@@ -110,8 +113,13 @@ fun FeatureHubScreen(
     viewModel: FeatureViewModel,
     toolkitState: ToolkitState,
     personalizationSettings: PersonalizationSettings,
+    activityProfiles: ActivityProfileState,
     initialFeatureId: String?,
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
+    onActivityProfileSelected: (String) -> Unit,
+    onActivityProfileCreated: (String) -> Unit,
+    onActivityProfileRenamed: (String) -> Unit,
+    onActivityProfileDeleted: () -> Unit,
     onSaveTrackedPlayer: (String) -> Unit,
     onAutoRefreshChanged: (Boolean) -> Unit,
     onRefreshTrackedPlayer: () -> Unit,
@@ -126,6 +134,19 @@ fun FeatureHubScreen(
     }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var personalizationOpen by rememberSaveable { mutableStateOf(false) }
+    var lastActivityProfileId by rememberSaveable {
+        mutableStateOf(activityProfiles.activeProfileId)
+    }
+    LaunchedEffect(activityProfiles.activeProfileId) {
+        if (lastActivityProfileId != activityProfiles.activeProfileId) {
+            selected = CompanionFeature.entries.firstOrNull {
+                it.name == activityProfiles.activeProfile.personalization.startFeatureId
+            }
+            settingsOpen = false
+            personalizationOpen = false
+            lastActivityProfileId = activityProfiles.activeProfileId
+        }
+    }
 
     when {
         personalizationOpen -> FeaturePage(
@@ -134,7 +155,12 @@ fun FeatureHubScreen(
         ) {
             PersonalizationScreen(
                 settings = personalizationSettings,
+                activityProfiles = activityProfiles,
                 onSettingsChanged = onPersonalizationChanged,
+                onActivityProfileSelected = onActivityProfileSelected,
+                onActivityProfileCreated = onActivityProfileCreated,
+                onActivityProfileRenamed = onActivityProfileRenamed,
+                onActivityProfileDeleted = onActivityProfileDeleted,
             )
         }
         settingsOpen -> FeaturePage(title = "App settings", onBack = { settingsOpen = false }) {
@@ -162,6 +188,7 @@ fun FeatureHubScreen(
         else -> FeatureHub(
             state = state,
             pinnedFeatureIds = personalizationSettings.pinnedFeatureIds,
+            activeProfile = activityProfiles.activeProfile,
             onSettings = { settingsOpen = true },
             onSelect = { selected = it },
         )
@@ -172,6 +199,7 @@ fun FeatureHubScreen(
 private fun FeatureHub(
     state: FeatureState,
     pinnedFeatureIds: List<String>,
+    activeProfile: ActivityProfile,
     onSettings: () -> Unit,
     onSelect: (CompanionFeature) -> Unit,
 ) {
@@ -208,8 +236,13 @@ private fun FeatureHub(
                 ),
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Customize & settings", fontWeight = FontWeight.Bold)
-                    Text("Personalization, tracked player, background hiscores, and preferences")
+                    Text(
+                        "${activeProfile.symbol} ${activeProfile.name}",
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "Active profile • tap for Activity Profiles, tracked player, and settings",
+                    )
                 }
             }
             if (pinnedFeatures.isNotEmpty()) {

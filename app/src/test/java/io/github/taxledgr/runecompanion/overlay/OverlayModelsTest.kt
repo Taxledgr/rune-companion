@@ -48,6 +48,43 @@ class OverlayModelsTest {
     }
 
     @Test
+    fun overlayAppearanceAndPlacementAreClampedSafely() {
+        val settings = OverlaySettings(
+            compactWidthDp = 900,
+            opacityPercent = 5,
+            portraitPlacement = OverlayPlacement(
+                panelXFraction = -1f,
+                bubbleYFraction = 2f,
+            ),
+        ).normalized()
+
+        assertEquals(OverlaySettings.MAX_COMPACT_WIDTH_DP, settings.compactWidthDp)
+        assertEquals(OverlaySettings.MIN_OPACITY_PERCENT, settings.opacityPercent)
+        assertEquals(0f, settings.portraitPlacement.panelXFraction)
+        assertEquals(1f, settings.portraitPlacement.bubbleYFraction)
+    }
+
+    @Test
+    fun enabledOverlaySectionsCanBeReordered() {
+        val settings = OverlaySettings(
+            enabledModules = setOf(
+                OverlayModule.STARS,
+                OverlayModule.TIMERS,
+                OverlayModule.SLAYER,
+            ),
+        ).moveModule(OverlayModule.SLAYER, -1)
+
+        assertEquals(
+            listOf(
+                OverlayModule.STARS,
+                OverlayModule.SLAYER,
+                OverlayModule.TIMERS,
+            ),
+            settings.orderedModules,
+        )
+    }
+
+    @Test
     fun readyTimersAreHighlightedAndCounted() {
         val content = OverlayContentBuilder.build(
             module = OverlayModule.TIMERS,

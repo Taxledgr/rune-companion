@@ -23,7 +23,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import io.github.taxledgr.runecompanion.overlay.OverlayPreferences
 import io.github.taxledgr.runecompanion.overlay.OverlayService
 import io.github.taxledgr.runecompanion.overlay.OverlaySettings
+import io.github.taxledgr.runecompanion.alerts.StarFilterPreferences
+import io.github.taxledgr.runecompanion.features.FeaturePreferences
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
+import io.github.taxledgr.runecompanion.personalization.ActivityProfile
+import io.github.taxledgr.runecompanion.personalization.ActivityProfilePreferences
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileTemplate
+import io.github.taxledgr.runecompanion.personalization.ActivityStarFilters
 import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
 import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
 import io.github.taxledgr.runecompanion.ui.WikiReaderScreen
@@ -34,6 +41,7 @@ import io.github.taxledgr.runecompanion.ui.StarViewModel
 import io.github.taxledgr.runecompanion.ui.theme.RuneCompanionTheme
 import io.github.taxledgr.runecompanion.toolkit.ToolkitViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     private val overlayPermission = MutableStateFlow(false)
@@ -45,11 +53,22 @@ class MainActivity : ComponentActivity() {
     private val overlaySettings = MutableStateFlow(OverlaySettings())
     private val personalizationPreferences by lazy { PersonalizationPreferences(this) }
     private val personalizationSettings = MutableStateFlow(PersonalizationSettings())
+    private val featurePreferences by lazy { FeaturePreferences(this) }
+    private val starFilterPreferences by lazy { StarFilterPreferences(this) }
+    private val activityProfilePreferences by lazy { ActivityProfilePreferences(this) }
+    private val activityProfiles = MutableStateFlow(
+        ActivityProfileState(
+            profiles = listOf(ActivityProfileTemplate.SHOOTING_STARS.profile()),
+            activeProfileId = ActivityProfileTemplate.SHOOTING_STARS.id,
+        ),
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overlaySettings.value = overlayPreferences.load()
         personalizationSettings.value = personalizationPreferences.load()
+        activityProfiles.value = loadActivityProfiles()
+        applyActivityProfile(activityProfiles.value.activeProfile, refreshViewModels = false)
         setContent {
             RuneCompanionTheme {
                 val state = starViewModel.state.collectAsStateWithLifecycle()
@@ -63,12 +82,36 @@ class MainActivity : ComponentActivity() {
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
                 val configuredOverlay = overlaySettings.collectAsStateWithLifecycle()
                 val personalization = personalizationSettings.collectAsStateWithLifecycle()
+                val configuredActivityProfiles =
+                    activityProfiles.collectAsStateWithLifecycle()
+                LaunchedEffect(featureState.value.data.selectedAccount) {
+                    updateActiveProfile {
+                        it.copy(selectedAccount = featureState.value.data.selectedAccount)
+                    }
+                }
+                LaunchedEffect(
+                    starFilterSettings.value.hideDangerousWorlds,
+                    starFilterSettings.value.excludedLocations,
+                ) {
+                    updateActiveProfile {
+                        it.copy(
+                            starFilters = ActivityStarFilters.from(
+                                starFilterSettings.value,
+                            ),
+                        )
+                    }
+                }
                 LaunchedEffect(featureState.value.restoreGeneration) {
                     if (featureState.value.restoreGeneration > 0) {
                         toolkitViewModel.reloadFromDisk()
                         starViewModel.reloadPreferences()
                         overlaySettings.value = overlayPreferences.load()
                         personalizationSettings.value = personalizationPreferences.load()
+                        activityProfiles.value = loadActivityProfiles()
+                        applyActivityProfile(
+                            activityProfiles.value.activeProfile,
+                            refreshViewModels = true,
+                        )
                         if (OverlayService.running.value) {
                             startService(OverlayService.reloadIntent(this@MainActivity))
                         }
@@ -107,7 +150,12 @@ class MainActivity : ComponentActivity() {
                     featureState = featureState.value,
                     featureViewModel = featureViewModel,
                     personalizationSettings = personalization.value,
+                    activityProfiles = configuredActivityProfiles.value,
                     onPersonalizationChanged = ::updatePersonalizationSettings,
+                    onActivityProfileSelected = ::selectActivityProfile,
+                    onActivityProfileCreated = ::createActivityProfile,
+                    onActivityProfileRenamed = ::renameActivityProfile,
+                    onActivityProfileDeleted = ::deleteActivityProfile,
                     notificationPermissionGranted = notificationsGranted.value,
                     onRequestNotificationPermission = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -201,6 +249,15 @@ class MainActivity : ComponentActivity() {
                             onOverlayModuleSelected = { module ->
                                 updateOverlaySettings { it.selected(module) }
                             },
+                            onOverlayModuleMoved = { module, delta ->
+                                updateOverlaySettings { it.moveModule(module, delta) }
+                            },
+                            onOverlayWidthChanged = { width ->
+                                updateOverlaySettings { it.copy(compactWidthDp = width) }
+                            },
+                            onOverlayOpacityChanged = { opacity ->
+                                updateOverlaySettings { it.copy(opacityPercent = opacity) }
+                            },
                             onOpenStarMiners = ::openStarMiners,
                             onOpenUrl = openCompanionUrl,
                         )
@@ -217,6 +274,7 @@ class MainActivity : ComponentActivity() {
         notificationPermission.value = canPostNotifications()
         overlaySettings.value = overlayPreferences.load()
         personalizationSettings.value = personalizationPreferences.load()
+        activityProfiles.value = loadActivityProfiles()
     }
 
     override fun onStart() {
@@ -246,6 +304,7 @@ class MainActivity : ComponentActivity() {
         val normalized = settings.normalized()
         personalizationSettings.value = normalized
         personalizationPreferences.save(normalized)
+        updateActiveProfile { it.copy(personalization = normalized) }
     }
 
     private fun openStarMiners() {
@@ -275,8 +334,105 @@ class MainActivity : ComponentActivity() {
         val updated = transform(overlaySettings.value).normalized()
         overlayPreferences.save(updated)
         overlaySettings.value = updated
+        updateActiveProfile { it.copy(overlay = updated) }
         if (OverlayService.running.value) {
             startService(OverlayService.reloadIntent(this))
+        }
+    }
+
+    private fun loadActivityProfiles(): ActivityProfileState =
+        activityProfilePreferences.load(
+            legacyPersonalization = personalizationPreferences.load(),
+            legacyOverlay = overlayPreferences.load(),
+            selectedAccount = featurePreferences.load().selectedAccount,
+            legacyFilters = starFilterPreferences.load(),
+        )
+
+    private fun updateActiveProfile(
+        transform: (ActivityProfile) -> ActivityProfile,
+    ) {
+        val updated = activityProfiles.value.updateActive(transform)
+        if (updated == activityProfiles.value) return
+        activityProfiles.value = updated
+        activityProfilePreferences.save(updated)
+    }
+
+    private fun captureActiveProfile() {
+        val filters = starFilterPreferences.load()
+        val updated = activityProfiles.value.updateActive { active ->
+            active.copy(
+                personalization = personalizationSettings.value,
+                overlay = overlaySettings.value,
+                selectedAccount = featurePreferences.load().selectedAccount,
+                starFilters = ActivityStarFilters.from(filters),
+            )
+        }
+        activityProfiles.value = updated
+        activityProfilePreferences.save(updated)
+    }
+
+    private fun selectActivityProfile(profileId: String) {
+        if (profileId == activityProfiles.value.activeProfileId) return
+        captureActiveProfile()
+        val selected = activityProfiles.value.select(profileId)
+        activityProfiles.value = selected
+        activityProfilePreferences.save(selected)
+        applyActivityProfile(selected.activeProfile, refreshViewModels = true)
+    }
+
+    private fun createActivityProfile(name: String) {
+        if (name.isBlank()) return
+        captureActiveProfile()
+        val updated = activityProfiles.value.addCopy(
+            id = UUID.randomUUID().toString(),
+            name = name,
+        )
+        activityProfiles.value = updated
+        activityProfilePreferences.save(updated)
+        applyActivityProfile(updated.activeProfile, refreshViewModels = true)
+    }
+
+    private fun renameActivityProfile(name: String) {
+        if (name.isBlank()) return
+        val updated = activityProfiles.value.renameActive(name)
+        activityProfiles.value = updated
+        activityProfilePreferences.save(updated)
+    }
+
+    private fun deleteActivityProfile() {
+        if (activityProfiles.value.profiles.size <= 1) return
+        val updated = activityProfiles.value.deleteActive()
+        activityProfiles.value = updated
+        activityProfilePreferences.save(updated)
+        applyActivityProfile(updated.activeProfile, refreshViewModels = true)
+    }
+
+    private fun applyActivityProfile(
+        profile: ActivityProfile,
+        refreshViewModels: Boolean,
+    ) {
+        val personalization = profile.personalization.normalized()
+        val overlay = profile.overlay.normalized()
+        personalizationPreferences.save(personalization)
+        overlayPreferences.save(overlay)
+        starFilterPreferences.save(
+            profile.starFilters.applyTo(starFilterPreferences.load()),
+        )
+        val featureData = featurePreferences.load()
+        val selectedAccount = profile.selectedAccount?.takeIf { username ->
+            featureData.accounts.any { it.username.equals(username, ignoreCase = true) }
+        }
+        if (featureData.selectedAccount != selectedAccount) {
+            featurePreferences.save(featureData.copy(selectedAccount = selectedAccount))
+        }
+        personalizationSettings.value = personalization
+        overlaySettings.value = overlay
+        if (refreshViewModels) {
+            starViewModel.reloadPreferences()
+            featureViewModel.reloadFromDisk()
+            if (OverlayService.running.value) {
+                startService(OverlayService.reloadIntent(this))
+            }
         }
     }
 }

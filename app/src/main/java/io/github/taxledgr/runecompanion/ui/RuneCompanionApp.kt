@@ -99,6 +99,9 @@ fun RuneCompanionApp(
     onToggleOverlay: () -> Unit,
     onOverlayModuleToggled: (OverlayModule) -> Unit,
     onOverlayModuleSelected: (OverlayModule) -> Unit,
+    onOverlayModuleMoved: (OverlayModule, Int) -> Unit,
+    onOverlayWidthChanged: (Int) -> Unit,
+    onOverlayOpacityChanged: (Int) -> Unit,
     onOpenStarMiners: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
@@ -183,6 +186,9 @@ fun RuneCompanionApp(
                         onToggle = onToggleOverlay,
                         onModuleToggled = onOverlayModuleToggled,
                         onModuleSelected = onOverlayModuleSelected,
+                        onModuleMoved = onOverlayModuleMoved,
+                        onWidthChanged = onOverlayWidthChanged,
+                        onOpacityChanged = onOverlayOpacityChanged,
                     )
                 }
                 item {
@@ -446,6 +452,9 @@ private fun OverlayCard(
     onToggle: () -> Unit,
     onModuleToggled: (OverlayModule) -> Unit,
     onModuleSelected: (OverlayModule) -> Unit,
+    onModuleMoved: (OverlayModule, Int) -> Unit,
+    onWidthChanged: (Int) -> Unit,
+    onOpacityChanged: (Int) -> Unit,
 ) {
     var configuring by rememberSaveable { mutableStateOf(false) }
     Card(
@@ -514,6 +523,50 @@ private fun OverlayCard(
             }
             if (configuring) {
                 Text(
+                    "Panel size",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        280 to "Small",
+                        310 to "Standard",
+                        360 to "Large",
+                    ).forEach { (width, label) ->
+                        FilterChip(
+                            modifier = Modifier.weight(1f),
+                            selected = settings.compactWidthDp == width,
+                            onClick = { onWidthChanged(width) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Text(
+                    "Panel opacity",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        70 to "70%",
+                        85 to "85%",
+                        100 to "100%",
+                    ).forEach { (opacity, label) ->
+                        FilterChip(
+                            modifier = Modifier.weight(1f),
+                            selected = settings.opacityPercent == opacity,
+                            onClick = { onOpacityChanged(opacity) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Text(
                     "Choose everything available in the pop-out",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
@@ -544,6 +597,31 @@ private fun OverlayCard(
                             }
                             if (rowModules.size == 1) Spacer(Modifier.weight(1f))
                         }
+                    }
+                }
+                Text(
+                    "Section order",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                settings.orderedModules.forEachIndexed { index, module ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "${index + 1}. ${module.symbol} ${module.label}",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        TextButton(
+                            onClick = { onModuleMoved(module, -1) },
+                            enabled = index > 0,
+                        ) { Text("↑") }
+                        TextButton(
+                            onClick = { onModuleMoved(module, 1) },
+                            enabled = index < settings.orderedModules.lastIndex,
+                        ) { Text("↓") }
                     }
                 }
                 Text(

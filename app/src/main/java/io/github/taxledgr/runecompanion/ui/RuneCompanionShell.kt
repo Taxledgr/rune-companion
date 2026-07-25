@@ -20,6 +20,8 @@ import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.features.FeatureState
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.personalization.AppTab
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
+import io.github.taxledgr.runecompanion.personalization.ActivityProfileTemplate
 import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
 
 @Composable
@@ -28,10 +30,18 @@ fun RuneCompanionShell(
     featureState: FeatureState,
     featureViewModel: FeatureViewModel,
     personalizationSettings: PersonalizationSettings,
+    activityProfiles: ActivityProfileState = ActivityProfileState(
+        profiles = listOf(ActivityProfileTemplate.SHOOTING_STARS.profile()),
+        activeProfileId = ActivityProfileTemplate.SHOOTING_STARS.id,
+    ),
     initialTab: AppTab = personalizationSettings.effectiveStartTab,
     initialFeatureId: String? = personalizationSettings.startFeatureId,
     showNavigation: Boolean = true,
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
+    onActivityProfileSelected: (String) -> Unit = {},
+    onActivityProfileCreated: (String) -> Unit = {},
+    onActivityProfileRenamed: (String) -> Unit = {},
+    onActivityProfileDeleted: () -> Unit = {},
     notificationPermissionGranted: Boolean,
     onRequestNotificationPermission: () -> Unit,
     onAddReminder: (String, io.github.taxledgr.runecompanion.toolkit.ReminderCategory, Int) -> Unit,
@@ -67,6 +77,11 @@ fun RuneCompanionShell(
             selectedTab = personalizationSettings.effectiveStartTab
                 .takeIf { it in personalizationSettings.navigationTabs }
                 ?: personalizationSettings.navigationTabs.first()
+        }
+    }
+    LaunchedEffect(activityProfiles.activeProfileId) {
+        if (showNavigation) {
+            selectedTab = personalizationSettings.effectiveStartTab
         }
     }
 
@@ -129,8 +144,13 @@ fun RuneCompanionShell(
                         viewModel = featureViewModel,
                         toolkitState = toolkitState,
                         personalizationSettings = personalizationSettings,
+                        activityProfiles = activityProfiles,
                         initialFeatureId = initialFeatureId,
                         onPersonalizationChanged = onPersonalizationChanged,
+                        onActivityProfileSelected = onActivityProfileSelected,
+                        onActivityProfileCreated = onActivityProfileCreated,
+                        onActivityProfileRenamed = onActivityProfileRenamed,
+                        onActivityProfileDeleted = onActivityProfileDeleted,
                         onSaveTrackedPlayer = onSaveTrackedPlayer,
                         onAutoRefreshChanged = onTrackedPlayerAutoRefreshChanged,
                         onRefreshTrackedPlayer = onRefreshTrackedPlayer,
