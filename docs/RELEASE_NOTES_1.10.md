@@ -1,5 +1,13 @@
 # Rune Companion 1.10
 
+## 1.10.2 system-bar spacing
+
+- The profile/search header respects the Android status-bar inset.
+- The app navigation bar is reduced to 68dp.
+- Nested Stars content no longer reserves Android system-bar space a second
+  time, removing the unused strip above the bottom navigation.
+- Version `1.10.2` uses Android version code `28`.
+
 ## 1.10.1 overlay quest navigation
 
 - Tapping a quest in the compact Quests & Diaries overlay now expands the

@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -113,17 +116,22 @@ fun RuneCompanionShell(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             if (showNavigation) {
                 Surface(tonalElevation = 2.dp) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .height(APP_HEADER_HEIGHT)
+                            .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             "${activityProfiles.activeProfile.symbol} " +
                                 activityProfiles.activeProfile.name,
-                            modifier = Modifier.padding(top = 14.dp),
                         )
                         TextButton(onClick = { searchOpen = true }) {
                             Text("⌕ Search")
@@ -134,7 +142,10 @@ fun RuneCompanionShell(
         },
         bottomBar = {
             if (showNavigation) {
-                NavigationBar {
+                NavigationBar(
+                    modifier = Modifier.height(APP_NAVIGATION_HEIGHT),
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                ) {
                     personalizationSettings.navigationTabs.forEach { tab ->
                         NavigationBarItem(
                             selected = selectedTab == tab,
@@ -251,3 +262,6 @@ fun RuneCompanionShell(
         }
     }
 }
+
+private val APP_HEADER_HEIGHT = 48.dp
+private val APP_NAVIGATION_HEIGHT = 68.dp
