@@ -280,6 +280,7 @@ data class FeatureData(
     val lootLedger: List<LootLedgerEntry> = emptyList(),
     val counterGoals: List<PublicCounterGoal> = emptyList(),
     val completedProgressIds: Set<String> = emptySet(),
+    val completedQuestGuideStepIds: Set<String> = emptySet(),
     val supplyLocker: List<SupplyLockerItem> = emptyList(),
     val wildernessRisk: List<WildernessRiskItem> = emptyList(),
     val customTeleports: List<CustomTeleport> = emptyList(),

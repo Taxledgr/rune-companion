@@ -13,6 +13,8 @@ import io.github.taxledgr.runecompanion.alerts.parseLocations
 import io.github.taxledgr.runecompanion.alerts.parseWorlds
 import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarLocationCatalog
+import io.github.taxledgr.runecompanion.data.StarDisplayPreferences
+import io.github.taxledgr.runecompanion.data.StarDisplaySettings
 import io.github.taxledgr.runecompanion.data.StarRepository
 import io.github.taxledgr.runecompanion.data.WorldDirectoryClient
 import io.github.taxledgr.runecompanion.data.WorldInfo
@@ -33,14 +35,21 @@ data class StarUiState(
     val error: String? = null,
     val isCached: Boolean = false,
     val worlds: Map<Int, WorldInfo> = emptyMap(),
+    val displaySettings: StarDisplaySettings = StarDisplaySettings(),
 )
 
 class StarViewModel(application: Application) : AndroidViewModel(application) {
     private val alertPreferences = StarAlertPreferences(application)
     private val alertNotifier = StarAlertNotifier(application)
     private val filterPreferences = StarFilterPreferences(application)
+    private val displayPreferences = StarDisplayPreferences(application)
     private val worldDirectoryClient = WorldDirectoryClient()
-    private val _state = MutableStateFlow(StarUiState(isLoading = true))
+    private val _state = MutableStateFlow(
+        StarUiState(
+            isLoading = true,
+            displaySettings = displayPreferences.load(),
+        ),
+    )
     val state: StateFlow<StarUiState> = _state.asStateFlow()
     private val _alertSettings = MutableStateFlow(alertPreferences.load())
     val alertSettings: StateFlow<StarAlertSettings> = _alertSettings.asStateFlow()
@@ -104,6 +113,7 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
                         error = repositoryStatus.lastFailureMessage,
                         isCached = repositoryStatus.lastFailureMessage != null,
                         worlds = _state.value.worlds,
+                        displaySettings = _state.value.displaySettings,
                     )
                     alertNotifier.notifyForMatches(feed.stars)
                 }
@@ -200,6 +210,20 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
         updateAlertSettings(_alertSettings.value.copy(enabled = enabled))
     }
 
+    fun setExpandedStar(key: String?) {
+        updateDisplaySettings(_state.value.displaySettings.copy(expandedStarKey = key))
+    }
+
+    fun setPreferredRoute(locationName: String, routeMethod: String?) {
+        val current = _state.value.displaySettings
+        val routes = if (routeMethod.isNullOrBlank()) {
+            current.preferredRoutes - locationName
+        } else {
+            current.preferredRoutes + (locationName to routeMethod)
+        }
+        updateDisplaySettings(current.copy(preferredRoutes = routes))
+    }
+
     private fun updateAlertSettings(settings: StarAlertSettings) {
         if (settings == _alertSettings.value) return
         alertPreferences.save(settings)
@@ -217,6 +241,12 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
         if (settings == _filterSettings.value) return
         filterPreferences.save(settings)
         _filterSettings.value = settings
+    }
+
+    private fun updateDisplaySettings(settings: StarDisplaySettings) {
+        if (settings == _state.value.displaySettings) return
+        displayPreferences.save(settings)
+        _state.update { it.copy(displaySettings = settings) }
     }
 
     private companion object {

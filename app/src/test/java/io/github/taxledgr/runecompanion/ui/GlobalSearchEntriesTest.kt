@@ -37,4 +37,24 @@ class GlobalSearchEntriesTest {
         assertTrue(entries.any { it.title == "Herb run" && it.tab == AppTab.TIMERS })
         assertEquals(entries.size, entries.distinctBy { "${it.title}:${it.featureId}" }.size)
     }
+
+    @Test
+    fun searchRanksStrongMatchesAndToleratesOneTypo() {
+        val teleport = GlobalSearchEntry(
+            title = "Teleport route planner",
+            summary = "Choose available teleports",
+            keywords = "travel poh jewellery",
+            tab = AppTab.MORE,
+        )
+        val unrelated = GlobalSearchEntry(
+            title = "Farming patches",
+            summary = "Track crops",
+            keywords = "herb",
+            tab = AppTab.MORE,
+        )
+
+        assertTrue(searchScore("teleport", teleport) > searchScore("teleport", unrelated))
+        assertTrue(searchScore("teleprot", teleport) > 0)
+        assertEquals(0, searchScore("teleprot", unrelated))
+    }
 }

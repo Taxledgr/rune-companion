@@ -55,7 +55,11 @@ data class OverlaySettings(
     val selectedModule: OverlayModule = OverlayModule.STARS,
     val moduleOrder: List<OverlayModule> = OverlayModule.entries,
     val compactWidthDp: Int = DEFAULT_COMPACT_WIDTH_DP,
+    val landscapeWidthDp: Int = DEFAULT_LANDSCAPE_WIDTH_DP,
     val opacityPercent: Int = DEFAULT_OPACITY_PERCENT,
+    val textScalePercent: Int = DEFAULT_TEXT_SCALE_PERCENT,
+    val snapToEdge: Boolean = true,
+    val avoidGameControls: Boolean = true,
     val portraitPlacement: OverlayPlacement = OverlayPlacement(),
     val landscapePlacement: OverlayPlacement = OverlayPlacement(),
 ) {
@@ -72,9 +76,17 @@ data class OverlaySettings(
                 MIN_COMPACT_WIDTH_DP,
                 MAX_COMPACT_WIDTH_DP,
             ),
+            landscapeWidthDp = landscapeWidthDp.coerceIn(
+                MIN_COMPACT_WIDTH_DP,
+                MAX_COMPACT_WIDTH_DP,
+            ),
             opacityPercent = opacityPercent.coerceIn(
                 MIN_OPACITY_PERCENT,
                 MAX_OPACITY_PERCENT,
+            ),
+            textScalePercent = textScalePercent.coerceIn(
+                MIN_TEXT_SCALE_PERCENT,
+                MAX_TEXT_SCALE_PERCENT,
             ),
             portraitPlacement = portraitPlacement.normalized(),
             landscapePlacement = landscapePlacement.normalized(),
@@ -118,11 +130,15 @@ data class OverlaySettings(
 
     companion object {
         const val DEFAULT_COMPACT_WIDTH_DP = 310
+        const val DEFAULT_LANDSCAPE_WIDTH_DP = 330
         const val MIN_COMPACT_WIDTH_DP = 270
         const val MAX_COMPACT_WIDTH_DP = 380
         const val DEFAULT_OPACITY_PERCENT = 100
         const val MIN_OPACITY_PERCENT = 65
         const val MAX_OPACITY_PERCENT = 100
+        const val DEFAULT_TEXT_SCALE_PERCENT = 100
+        const val MIN_TEXT_SCALE_PERCENT = 85
+        const val MAX_TEXT_SCALE_PERCENT = 130
     }
 }
 
@@ -167,10 +183,20 @@ class OverlayPreferences(context: Context) {
                 KEY_COMPACT_WIDTH,
                 OverlaySettings.DEFAULT_COMPACT_WIDTH_DP,
             ),
+            landscapeWidthDp = preferences.getInt(
+                KEY_LANDSCAPE_WIDTH,
+                OverlaySettings.DEFAULT_LANDSCAPE_WIDTH_DP,
+            ),
             opacityPercent = preferences.getInt(
                 KEY_OPACITY,
                 OverlaySettings.DEFAULT_OPACITY_PERCENT,
             ),
+            textScalePercent = preferences.getInt(
+                KEY_TEXT_SCALE,
+                OverlaySettings.DEFAULT_TEXT_SCALE_PERCENT,
+            ),
+            snapToEdge = preferences.getBoolean(KEY_SNAP_TO_EDGE, true),
+            avoidGameControls = preferences.getBoolean(KEY_AVOID_GAME_CONTROLS, true),
             portraitPlacement = loadPlacement(PORTRAIT_PREFIX),
             landscapePlacement = loadPlacement(LANDSCAPE_PREFIX),
         ).normalized()
@@ -183,7 +209,11 @@ class OverlayPreferences(context: Context) {
             .putString(KEY_SELECTED, normalized.selectedModule.name)
             .putString(KEY_ORDER, normalized.moduleOrder.joinToString(",") { it.name })
             .putInt(KEY_COMPACT_WIDTH, normalized.compactWidthDp)
+            .putInt(KEY_LANDSCAPE_WIDTH, normalized.landscapeWidthDp)
             .putInt(KEY_OPACITY, normalized.opacityPercent)
+            .putInt(KEY_TEXT_SCALE, normalized.textScalePercent)
+            .putBoolean(KEY_SNAP_TO_EDGE, normalized.snapToEdge)
+            .putBoolean(KEY_AVOID_GAME_CONTROLS, normalized.avoidGameControls)
             .putPlacement(PORTRAIT_PREFIX, normalized.portraitPlacement)
             .putPlacement(LANDSCAPE_PREFIX, normalized.landscapePlacement)
             .apply()
@@ -224,7 +254,11 @@ class OverlayPreferences(context: Context) {
         private const val KEY_SELECTED = "selected_module"
         private const val KEY_ORDER = "module_order"
         private const val KEY_COMPACT_WIDTH = "compact_width_dp"
+        private const val KEY_LANDSCAPE_WIDTH = "landscape_width_dp"
         private const val KEY_OPACITY = "opacity_percent"
+        private const val KEY_TEXT_SCALE = "text_scale_percent"
+        private const val KEY_SNAP_TO_EDGE = "snap_to_edge"
+        private const val KEY_AVOID_GAME_CONTROLS = "avoid_game_controls"
         private const val PORTRAIT_PREFIX = "portrait"
         private const val LANDSCAPE_PREFIX = "landscape"
     }

@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,8 @@ import io.github.taxledgr.runecompanion.features.FeatureState
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.features.MarketHistoryPoint
 import io.github.taxledgr.runecompanion.features.ProgressPreset
+import io.github.taxledgr.runecompanion.features.QuestGuide
+import io.github.taxledgr.runecompanion.features.QuestGuideCatalog
 import io.github.taxledgr.runecompanion.features.TeleportCatalog
 import io.github.taxledgr.runecompanion.features.currentValue
 import io.github.taxledgr.runecompanion.features.magicLevel
@@ -390,7 +393,21 @@ internal fun ProgressNavigatorScreen(
 ) {
     var category by remember { mutableStateOf("Quest") }
     var query by remember { mutableStateOf("") }
+    var selectedQuestId by rememberSaveable { mutableStateOf<String?>(null) }
     val profile = selectedProfile(state)
+    val selectedEntry = ExpansionCatalog.progress.firstOrNull { it.id == selectedQuestId }
+    val selectedGuide = selectedQuestId?.let(QuestGuideCatalog::forQuest)
+    if (selectedEntry != null && selectedGuide != null) {
+        QuestGuideScreen(
+            entry = selectedEntry,
+            guide = selectedGuide,
+            state = state,
+            viewModel = viewModel,
+            onBack = { selectedQuestId = null },
+            onOpenUrl = onOpenUrl,
+        )
+        return
+    }
     val visible = ExpansionCatalog.progress.filter {
         it.category == category && (query.isBlank() || it.name.contains(query, ignoreCase = true))
     }
@@ -398,9 +415,9 @@ internal fun ProgressNavigatorScreen(
         item {
             InfoCard(
                 "Quest and diary navigator",
-                "Public levels are checked automatically. Quest points, prerequisite completion, " +
-                    "boosts, items, and diary tasks remain manual. Every entry opens its complete " +
-                    "current Wiki article inside Rune Companion.",
+                "Select a quest for preparation, equipment, teleports, an ordered walkthrough, " +
+                    "and saved progress. Public levels are checked automatically; the current " +
+                    "OSRS Wiki quick guide stays available inside Rune Companion.",
             )
             ChoiceRow(listOf("Quest", "Achievement Diary"), category) { category = it }
             Field(query, { query = it }, "Search $category")
@@ -410,7 +427,18 @@ internal fun ProgressNavigatorScreen(
             )
         }
         items(visible) { entry ->
-            ProgressCard(entry, profile, entry.id in state.data.completedProgressIds, viewModel, onOpenUrl)
+            ProgressCard(
+                entry = entry,
+                profile = profile,
+                completed = entry.id in state.data.completedProgressIds,
+                viewModel = viewModel,
+                onStartGuide = if (QuestGuideCatalog.forQuest(entry.id) != null) {
+                    { selectedQuestId = entry.id }
+                } else {
+                    null
+                },
+                onOpenUrl = onOpenUrl,
+            )
         }
     }
 }
@@ -421,6 +449,7 @@ private fun ProgressCard(
     profile: AccountProfile?,
     completed: Boolean,
     viewModel: FeatureViewModel,
+    onStartGuide: (() -> Unit)?,
     onOpenUrl: (String) -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
@@ -442,8 +471,166 @@ private fun ProgressCard(
                 )
             }
             Text("Prerequisites: ${entry.prerequisites}")
+            onStartGuide?.let { startGuide ->
+                Button(
+                    onClick = startGuide,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Open start-to-finish guide")
+                }
+            }
             OutlinedButton(onClick = { onOpenUrl(wikiUrl(entry.wikiTitle)) }) {
                 Text("Full requirements in Wiki")
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuestGuideScreen(
+    entry: ProgressPreset,
+    guide: QuestGuide,
+    state: FeatureState,
+    viewModel: FeatureViewModel,
+    onBack: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+) {
+    val completedIds = state.data.completedQuestGuideStepIds
+    val stepIds = guide.steps.map { QuestGuideCatalog.stepId(entry.id, it.id) }
+    val completedSteps = stepIds.count(completedIds::contains)
+    val progress = if (stepIds.isEmpty()) 0f else completedSteps.toFloat() / stepIds.size
+    FeatureList {
+        item {
+            TextButton(onClick = onBack) { Text("‹ Back to quests") }
+            InfoCard(
+                entry.name,
+                "Your preparation and step progress are saved on this phone. This concise " +
+                    "companion guide does not read the game; tick each item and step yourself.",
+            )
+            Text(
+                "$completedSteps of ${guide.steps.size} route steps complete",
+                fontWeight = FontWeight.Bold,
+            )
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            QuestPreparationCard(
+                title = "Inventory",
+                items = guide.inventory,
+                questId = entry.id,
+                group = "inventory",
+                completedIds = completedIds,
+                onToggle = viewModel::toggleQuestGuideCheck,
+            )
+        }
+        item {
+            QuestPreparationCard(
+                title = "What to wear",
+                items = guide.equipment,
+                questId = entry.id,
+                group = "equipment",
+                completedIds = completedIds,
+                onToggle = viewModel::toggleQuestGuideCheck,
+            )
+        }
+        item {
+            QuestPreparationCard(
+                title = "Fast travel",
+                items = guide.teleports,
+                questId = entry.id,
+                group = "teleports",
+                completedIds = completedIds,
+                onToggle = viewModel::toggleQuestGuideCheck,
+            )
+        }
+        item {
+            SectionTitle("Start-to-finish route")
+        }
+        items(guide.steps) { step ->
+            val id = QuestGuideCatalog.stepId(entry.id, step.id)
+            Card(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Checkbox(
+                            checked = id in completedIds,
+                            onCheckedChange = { viewModel.toggleQuestGuideCheck(id) },
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "${guide.steps.indexOf(step) + 1}. ${step.title}",
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                step.directions,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    step.warning?.let { warning ->
+                        Text(
+                            "Warning: $warning",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            InfoCard(
+                "Keep exact details current",
+                "Dialogue choices, puzzle layouts, boss mechanics, death recovery, and item " +
+                    "requirements can change. Open the live Wiki quick guide below without " +
+                    "leaving Rune Companion.",
+            )
+            Button(
+                onClick = { onOpenUrl(wikiUrl("${entry.wikiTitle}/Quick guide")) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Open live Wiki quick guide")
+            }
+            OutlinedButton(
+                onClick = { viewModel.resetQuestGuide(entry.id) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = completedIds.any { it.startsWith("${entry.id}:") },
+            ) {
+                Text("Reset this guide")
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuestPreparationCard(
+    title: String,
+    items: List<String>,
+    questId: String,
+    group: String,
+    completedIds: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(title, fontWeight = FontWeight.Bold)
+            items.forEachIndexed { index, label ->
+                val id = QuestGuideCatalog.checklistId(questId, group, index)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = id in completedIds,
+                        onCheckedChange = { onToggle(id) },
+                    )
+                    Text(label, modifier = Modifier.weight(1f))
+                }
             }
         }
     }
@@ -832,7 +1019,10 @@ private fun selectedProfile(state: FeatureState): AccountProfile? =
     }
 
 internal fun wikiUrl(title: String): String =
-    "https://oldschool.runescape.wiki/w/${Uri.encode(title.replace(' ', '_'))}"
+    "https://oldschool.runescape.wiki/w/" +
+        title.split('/').joinToString("/") { segment ->
+            Uri.encode(segment.replace(' ', '_'))
+        }
 
 internal fun wikiSearchUrl(query: String): String =
     "https://oldschool.runescape.wiki/?search=${Uri.encode(query)}"

@@ -104,7 +104,14 @@ fun RuneCompanionApp(
     onOverlayModuleSelected: (OverlayModule) -> Unit,
     onOverlayModuleMoved: (OverlayModule, Int) -> Unit,
     onOverlayWidthChanged: (Int) -> Unit,
+    onOverlayLandscapeWidthChanged: (Int) -> Unit,
     onOverlayOpacityChanged: (Int) -> Unit,
+    onOverlayTextScaleChanged: (Int) -> Unit,
+    onOverlaySnapChanged: (Boolean) -> Unit,
+    onOverlayAvoidControlsChanged: (Boolean) -> Unit,
+    onOverlayResetPlacement: () -> Unit,
+    onExpandedStarChanged: (String?) -> Unit,
+    onPreferredStarRouteChanged: (String, String?) -> Unit,
     onOpenStarMiners: () -> Unit,
     onOpenUrl: (String) -> Unit,
     editorMode: Boolean = false,
@@ -204,7 +211,12 @@ fun RuneCompanionApp(
                         onModuleSelected = onOverlayModuleSelected,
                         onModuleMoved = onOverlayModuleMoved,
                         onWidthChanged = onOverlayWidthChanged,
+                        onLandscapeWidthChanged = onOverlayLandscapeWidthChanged,
                         onOpacityChanged = onOverlayOpacityChanged,
+                        onTextScaleChanged = onOverlayTextScaleChanged,
+                        onSnapChanged = onOverlaySnapChanged,
+                        onAvoidControlsChanged = onOverlayAvoidControlsChanged,
+                        onResetPlacement = onOverlayResetPlacement,
                     )
                 }
                 item {
@@ -296,6 +308,14 @@ fun RuneCompanionApp(
                     star = star,
                     worldInfo = state.worlds[star.world],
                     featureData = featureData,
+                    routeExpanded = state.displaySettings.expandedStarKey == star.displayKey(),
+                    preferredRouteMethod = state.displaySettings.preferredRoutes[star.locationName],
+                    onExpandedChanged = { expanded ->
+                        onExpandedStarChanged(if (expanded) star.displayKey() else null)
+                    },
+                    onPreferredRouteChanged = { method ->
+                        onPreferredStarRouteChanged(star.locationName, method)
+                    },
                     onOpenRouteGuide = {
                         onOpenUrl(
                             "https://oldschool.runescape.wiki/w/Shooting_Stars#Landing_sites",
@@ -470,7 +490,12 @@ private fun OverlayCard(
     onModuleSelected: (OverlayModule) -> Unit,
     onModuleMoved: (OverlayModule, Int) -> Unit,
     onWidthChanged: (Int) -> Unit,
+    onLandscapeWidthChanged: (Int) -> Unit,
     onOpacityChanged: (Int) -> Unit,
+    onTextScaleChanged: (Int) -> Unit,
+    onSnapChanged: (Boolean) -> Unit,
+    onAvoidControlsChanged: (Boolean) -> Unit,
+    onResetPlacement: () -> Unit,
 ) {
     var configuring by rememberSaveable { mutableStateOf(false) }
     Card(
@@ -539,7 +564,7 @@ private fun OverlayCard(
             }
             if (configuring) {
                 Text(
-                    "Panel size",
+                    "Portrait panel size",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                 )
@@ -556,6 +581,28 @@ private fun OverlayCard(
                             modifier = Modifier.weight(1f),
                             selected = settings.compactWidthDp == width,
                             onClick = { onWidthChanged(width) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Text(
+                    "Landscape panel size",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        280 to "Small",
+                        330 to "Standard",
+                        370 to "Large",
+                    ).forEach { (width, label) ->
+                        FilterChip(
+                            modifier = Modifier.weight(1f),
+                            selected = settings.landscapeWidthDp == width,
+                            onClick = { onLandscapeWidthChanged(width) },
                             label = { Text(label) },
                         )
                     }
@@ -581,6 +628,58 @@ private fun OverlayCard(
                             label = { Text(label) },
                         )
                     }
+                }
+                Text(
+                    "Overlay text size",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        90 to "Compact",
+                        100 to "Standard",
+                        120 to "Large",
+                    ).forEach { (scale, label) ->
+                        FilterChip(
+                            modifier = Modifier.weight(1f),
+                            selected = settings.textScalePercent == scale,
+                            onClick = { onTextScaleChanged(scale) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        modifier = Modifier.weight(1f),
+                        selected = settings.snapToEdge,
+                        onClick = { onSnapChanged(!settings.snapToEdge) },
+                        label = { Text("Snap to edges") },
+                    )
+                    FilterChip(
+                        modifier = Modifier.weight(1f),
+                        selected = settings.avoidGameControls,
+                        onClick = { onAvoidControlsChanged(!settings.avoidGameControls) },
+                        label = { Text("Keep centre-safe") },
+                    )
+                }
+                Text(
+                    "Centre-safe keeps the landscape panel away from the usual left and right " +
+                        "OSRS control rails. Position and size are remembered separately for " +
+                        "portrait and landscape.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = onResetPlacement,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Reset overlay position")
                 }
                 Text(
                     "Choose everything available in the pop-out",
@@ -693,13 +792,12 @@ private fun StarCard(
     star: ShootingStar,
     worldInfo: io.github.taxledgr.runecompanion.data.WorldInfo?,
     featureData: FeatureData,
+    routeExpanded: Boolean,
+    preferredRouteMethod: String?,
+    onExpandedChanged: (Boolean) -> Unit,
+    onPreferredRouteChanged: (String?) -> Unit,
     onOpenRouteGuide: () -> Unit,
 ) {
-    var routeExpanded by rememberSaveable(
-        star.world,
-        star.locationId,
-        star.calledAt,
-    ) { mutableStateOf(false) }
     val guide = remember(star.locationName) {
         StarTravelCatalog.guideFor(star.locationName)
     }
@@ -725,7 +823,7 @@ private fun StarCard(
                         } else {
                             "Show travel route and map"
                         },
-                    ) { routeExpanded = !routeExpanded }
+                    ) { onExpandedChanged(!routeExpanded) }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -802,13 +900,25 @@ private fun StarCard(
                     }
                 }
             }
-            if (routeExpanded) rankedRoutes.firstOrNull()?.let { best ->
+            val displayRoutes = remember(rankedRoutes, preferredRouteMethod) {
+                val preferred = rankedRoutes.firstOrNull {
+                    it.available && it.route.method == preferredRouteMethod
+                }
+                if (preferred == null) {
+                    rankedRoutes
+                } else {
+                    listOf(preferred) + rankedRoutes.filterNot { it === preferred }
+                }
+            }
+            if (routeExpanded) displayRoutes.firstOrNull()?.let { best ->
                 HorizontalDivider()
                 StarRouteSummary(
                     best = best,
-                    allRoutes = rankedRoutes,
+                    allRoutes = displayRoutes,
                     mapPoint = mapPoint,
-                    onCollapse = { routeExpanded = false },
+                    preferredRouteMethod = preferredRouteMethod,
+                    onPreferredRouteChanged = onPreferredRouteChanged,
+                    onCollapse = { onExpandedChanged(false) },
                     onOpenRouteGuide = onOpenRouteGuide,
                 )
             }
@@ -821,6 +931,8 @@ private fun StarRouteSummary(
     best: RankedStarTravelRoute,
     allRoutes: List<RankedStarTravelRoute>,
     mapPoint: StarMapPoint?,
+    preferredRouteMethod: String?,
+    onPreferredRouteChanged: (String?) -> Unit,
     onCollapse: () -> Unit,
     onOpenRouteGuide: () -> Unit,
 ) {
@@ -829,7 +941,11 @@ private fun StarRouteSummary(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            if (best.available) "FASTEST AVAILABLE FOR YOU" else "FASTEST KNOWN ROUTE",
+            when {
+                best.route.method == preferredRouteMethod -> "YOUR SAVED ROUTE"
+                best.available -> "FASTEST AVAILABLE FOR YOU"
+                else -> "FASTEST KNOWN ROUTE"
+            },
             style = MaterialTheme.typography.labelSmall,
             color = if (best.available) RuneCyan else RuneGold,
             fontWeight = FontWeight.Bold,
@@ -841,6 +957,22 @@ private fun StarRouteSummary(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         RouteRequirements(best)
+        TextButton(
+            onClick = {
+                onPreferredRouteChanged(
+                    if (best.route.method == preferredRouteMethod) null else best.route.method,
+                )
+            },
+            enabled = best.available,
+        ) {
+            Text(
+                if (best.route.method == preferredRouteMethod) {
+                    "Remove saved route"
+                } else {
+                    "Save as my preferred route"
+                },
+            )
+        }
         mapPoint?.let { point ->
             Spacer(Modifier.height(4.dp))
             Text(
@@ -854,8 +986,17 @@ private fun StarRouteSummary(
         allRoutes.drop(1).forEachIndexed { index, ranked ->
             HorizontalDivider()
             Text(
-                "${index + 2}. ${ranked.route.method}",
+                if (ranked.available) {
+                    "AVAILABLE ALTERNATIVE ${index + 2} • ${ranked.route.method}"
+                } else {
+                    "UNAVAILABLE • ${ranked.route.method}"
+                },
                 fontWeight = FontWeight.SemiBold,
+                color = if (ranked.available) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
             Text(
                 ranked.route.steps,
@@ -863,6 +1004,27 @@ private fun StarRouteSummary(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             RouteRequirements(ranked)
+            if (ranked.available) {
+                TextButton(
+                    onClick = {
+                        onPreferredRouteChanged(
+                            if (ranked.route.method == preferredRouteMethod) {
+                                null
+                            } else {
+                                ranked.route.method
+                            },
+                        )
+                    },
+                ) {
+                    Text(
+                        if (ranked.route.method == preferredRouteMethod) {
+                            "Remove saved route"
+                        } else {
+                            "Use this route next time"
+                        },
+                    )
+                }
+            }
         }
         Text(
             "Availability uses the selected profile's public Agility/Magic levels " +
@@ -880,6 +1042,9 @@ private fun StarRouteSummary(
         }
     }
 }
+
+private fun ShootingStar.displayKey(): String =
+    "$world|$locationId|$calledAt"
 
 @Composable
 private fun StarMapPreview(point: StarMapPoint) {

@@ -692,6 +692,44 @@ class FeatureViewModel(application: Application) : AndroidViewModel(application)
         data.copy(completedProgressIds = completed)
     }
 
+    fun toggleQuestGuideCheck(id: String) = updateData { data ->
+        val completed = if (id in data.completedQuestGuideStepIds) {
+            data.completedQuestGuideStepIds - id
+        } else {
+            data.completedQuestGuideStepIds + id
+        }
+        data.copy(completedQuestGuideStepIds = completed)
+    }
+
+    fun resetQuestGuide(questId: String) = updateData { data ->
+        data.copy(
+            completedQuestGuideStepIds = data.completedQuestGuideStepIds.filterNot {
+                it.startsWith("$questId:")
+            }.toSet(),
+        )
+    }
+
+    fun optimizeLocalStorage() {
+        val before = _state.value.data.accounts.sumOf { it.snapshots.size }
+        var after = before
+        updateData(recordUndo = false) { data ->
+            val compactedAccounts = data.accounts.map { account ->
+                account.copy(snapshots = compactSnapshots(account.snapshots))
+            }
+            after = compactedAccounts.sumOf { it.snapshots.size }
+            data.copy(accounts = compactedAccounts)
+        }
+        _state.update {
+            it.copy(
+                message = if (before == after) {
+                    "Local storage is already optimized."
+                } else {
+                    "Storage optimized • removed ${before - after} redundant public-stat snapshots."
+                },
+            )
+        }
+    }
+
     fun addSupplyLockerItem(
         item: PriceSearchItem,
         quantity: Int,

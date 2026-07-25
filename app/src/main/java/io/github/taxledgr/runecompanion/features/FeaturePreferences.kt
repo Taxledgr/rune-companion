@@ -118,6 +118,10 @@ class FeaturePreferences(context: Context) {
         put("lootLedger", data.lootLedger.jsonArray { it.toJson() })
         put("counterGoals", data.counterGoals.jsonArray { it.toJson() })
         put("completedProgressIds", JSONArray(data.completedProgressIds.toList()))
+        put(
+            "completedQuestGuideStepIds",
+            JSONArray(data.completedQuestGuideStepIds.toList()),
+        )
         put("supplyLocker", data.supplyLocker.jsonArray { it.toJson() })
         put("wildernessRisk", data.wildernessRisk.jsonArray { it.toJson() })
         put("customTeleports", data.customTeleports.jsonArray { it.toJson() })
@@ -167,6 +171,7 @@ class FeaturePreferences(context: Context) {
             lootLedger = root.array("lootLedger") { it.toLootLedgerEntry() },
             counterGoals = root.array("counterGoals") { it.toCounterGoal() },
             completedProgressIds = root.stringSet("completedProgressIds"),
+            completedQuestGuideStepIds = root.stringSet("completedQuestGuideStepIds"),
             supplyLocker = root.array("supplyLocker") { it.toSupplyLockerItem() },
             wildernessRisk = root.array("wildernessRisk") { it.toWildernessRiskItem() },
             customTeleports = root.array("customTeleports") { it.toCustomTeleport() },

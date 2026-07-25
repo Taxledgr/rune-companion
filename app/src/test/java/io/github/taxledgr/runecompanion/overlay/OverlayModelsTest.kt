@@ -65,6 +65,23 @@ class OverlayModelsTest {
     }
 
     @Test
+    fun displayControlsAreClampedWithoutChangingOrientationPlacements() {
+        val settings = OverlaySettings(
+            compactWidthDp = 100,
+            landscapeWidthDp = 900,
+            textScalePercent = 200,
+            portraitPlacement = OverlayPlacement(panelXFraction = 0.2f),
+            landscapePlacement = OverlayPlacement(panelXFraction = 0.8f),
+        ).normalized()
+
+        assertEquals(OverlaySettings.MIN_COMPACT_WIDTH_DP, settings.compactWidthDp)
+        assertEquals(OverlaySettings.MAX_COMPACT_WIDTH_DP, settings.landscapeWidthDp)
+        assertEquals(OverlaySettings.MAX_TEXT_SCALE_PERCENT, settings.textScalePercent)
+        assertEquals(0.2f, settings.portraitPlacement.panelXFraction)
+        assertEquals(0.8f, settings.landscapePlacement.panelXFraction)
+    }
+
+    @Test
     fun enabledOverlaySectionsCanBeReordered() {
         val settings = OverlaySettings(
             enabledModules = setOf(

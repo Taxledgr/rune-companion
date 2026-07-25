@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import io.github.taxledgr.runecompanion.overlay.OverlayPreferences
+import io.github.taxledgr.runecompanion.overlay.OverlayPlacement
 import io.github.taxledgr.runecompanion.overlay.OverlayService
 import io.github.taxledgr.runecompanion.overlay.OverlaySettings
 import io.github.taxledgr.runecompanion.alerts.StarFilterPreferences
@@ -34,6 +35,8 @@ import io.github.taxledgr.runecompanion.personalization.ActivityProfileTemplate
 import io.github.taxledgr.runecompanion.personalization.ActivityStarFilters
 import io.github.taxledgr.runecompanion.personalization.PersonalizationPreferences
 import io.github.taxledgr.runecompanion.personalization.PersonalizationSettings
+import io.github.taxledgr.runecompanion.personalization.OnboardingPreferences
+import io.github.taxledgr.runecompanion.ui.FirstRunSetupScreen
 import io.github.taxledgr.runecompanion.ui.WikiReaderScreen
 import io.github.taxledgr.runecompanion.ui.isWikiUrl
 import io.github.taxledgr.runecompanion.ui.RuneCompanionApp
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private val overlayPreferences by lazy { OverlayPreferences(this) }
     private val overlaySettings = MutableStateFlow(OverlaySettings())
     private val personalizationPreferences by lazy { PersonalizationPreferences(this) }
+    private val onboardingPreferences by lazy { OnboardingPreferences(this) }
     private val personalizationSettings = MutableStateFlow(PersonalizationSettings())
     private val starFilterPreferences by lazy { StarFilterPreferences(this) }
     private val activityProfilePreferences by lazy { ActivityProfilePreferences(this) }
@@ -63,6 +67,7 @@ class MainActivity : ComponentActivity() {
             activeProfileId = ActivityProfileTemplate.SHOOTING_STARS.id,
         ),
     )
+    private var showFirstRunSetup by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +79,7 @@ class MainActivity : ComponentActivity() {
         }
         window.decorView.filterTouchesWhenObscured = true
         WebView.setWebContentsDebuggingEnabled(false)
+        showFirstRunSetup = onboardingPreferences.shouldShowOnFirstLaunch()
         overlaySettings.value = overlayPreferences.load()
         personalizationSettings.value = personalizationPreferences.load()
         activityProfiles.value = loadActivityProfiles()
@@ -151,7 +157,13 @@ class MainActivity : ComponentActivity() {
                     notificationPermission.value = granted
                 }
 
-                if (activeWikiUrl != null) {
+                if (showFirstRunSetup) {
+                    FirstRunSetupScreen { template ->
+                        selectActivityProfile(template.id)
+                        onboardingPreferences.complete()
+                        showFirstRunSetup = false
+                    }
+                } else if (activeWikiUrl != null) {
                     WikiReaderScreen(
                         initialUrl = requireNotNull(activeWikiUrl),
                         onClose = { activeWikiUrl = null },
@@ -270,9 +282,31 @@ class MainActivity : ComponentActivity() {
                             onOverlayWidthChanged = { width ->
                                 updateOverlaySettings { it.copy(compactWidthDp = width) }
                             },
+                            onOverlayLandscapeWidthChanged = { width ->
+                                updateOverlaySettings { it.copy(landscapeWidthDp = width) }
+                            },
                             onOverlayOpacityChanged = { opacity ->
                                 updateOverlaySettings { it.copy(opacityPercent = opacity) }
                             },
+                            onOverlayTextScaleChanged = { scale ->
+                                updateOverlaySettings { it.copy(textScalePercent = scale) }
+                            },
+                            onOverlaySnapChanged = { enabled ->
+                                updateOverlaySettings { it.copy(snapToEdge = enabled) }
+                            },
+                            onOverlayAvoidControlsChanged = { enabled ->
+                                updateOverlaySettings { it.copy(avoidGameControls = enabled) }
+                            },
+                            onOverlayResetPlacement = {
+                                updateOverlaySettings {
+                                    it.copy(
+                                        portraitPlacement = OverlayPlacement(),
+                                        landscapePlacement = OverlayPlacement(),
+                                    )
+                                }
+                            },
+                            onExpandedStarChanged = starViewModel::setExpandedStar,
+                            onPreferredStarRouteChanged = starViewModel::setPreferredRoute,
                             onOpenStarMiners = ::openStarMiners,
                             onOpenUrl = openCompanionUrl,
                         )

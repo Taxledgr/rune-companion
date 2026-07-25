@@ -141,6 +141,9 @@ class AppBackupManager(private val context: Context) {
             ActivityProfilePreferences.PREFERENCES_NAME,
             "shooting_star_alerts",
             "shooting_star_filters",
+            "rune_companion_star_display",
+            "rune_companion_search_history",
+            "rune_companion_onboarding",
         )
     }
 }

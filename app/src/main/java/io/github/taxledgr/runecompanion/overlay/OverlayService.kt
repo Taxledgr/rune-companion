@@ -351,7 +351,7 @@ class OverlayService :
         )
 
         overlayParams = WindowManager.LayoutParams(
-            dp(overlaySettings.compactWidthDp),
+            panelWidthPx(),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -368,6 +368,7 @@ class OverlayService :
         makeDraggable(
             handle = title,
             params = overlayParams,
+            snapToEdge = { overlaySettings.snapToEdge },
             onDragEnd = ::savePanelPlacement,
         )
         makeDraggable(
@@ -377,7 +378,7 @@ class OverlayService :
             onLongPress = {
                 showProfileSwitcher(openedFromBubble = true)
             },
-            snapToEdge = true,
+            snapToEdge = { overlaySettings.snapToEdge },
             onDragEnd = {
                 bubbleX = overlayParams.x
                 bubbleY = overlayParams.y
@@ -781,7 +782,7 @@ class OverlayService :
         params: WindowManager.LayoutParams,
         onTap: (() -> Unit)? = null,
         onLongPress: (() -> Unit)? = null,
-        snapToEdge: Boolean = false,
+        snapToEdge: () -> Boolean = { false },
         onDragEnd: (() -> Unit)? = null,
     ) {
         var initialX = 0
@@ -819,7 +820,13 @@ class OverlayService :
                 }
                 MotionEvent.ACTION_UP -> {
                     if (moved) {
-                        if (snapToEdge) snapBubbleToEdge(params)
+                        if (snapToEdge()) {
+                            if (bubbleView?.visibility == View.VISIBLE) {
+                                snapBubbleToEdge(params)
+                            } else {
+                                snapPanelToEdge(params)
+                            }
+                        }
                         onDragEnd?.invoke()
                     } else if (
                         onLongPress != null &&
@@ -854,7 +861,11 @@ class OverlayService :
             ).coerceAtLeast(0)
         overlayParams.y = bubbleY ?: (panelY + dp(BUBBLE_DEFAULT_OFFSET_DP))
         updateBubble(overlaySettings.selectedModule, activeBadgeCount)
-        snapBubbleToEdge(overlayParams)
+        if (overlaySettings.snapToEdge) {
+            snapBubbleToEdge(overlayParams)
+        } else {
+            clampOverlayPosition(overlayParams)
+        }
         bubbleX = overlayParams.x
         bubbleY = overlayParams.y
     }
@@ -865,7 +876,7 @@ class OverlayService :
         if (panel.visibility == View.VISIBLE) return
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
-        overlayParams.width = dp(overlaySettings.compactWidthDp)
+        overlayParams.width = panelWidthPx()
         overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         overlayParams.x = panelX
         overlayParams.y = panelY
@@ -958,7 +969,7 @@ class OverlayService :
         overlayParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         overlayParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-        overlayParams.width = dp(overlaySettings.compactWidthDp)
+        overlayParams.width = panelWidthPx()
         overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         overlayParams.x = panelX
         overlayParams.y = panelY
@@ -1079,7 +1090,7 @@ class OverlayService :
         } else {
             bubbleView?.visibility = View.GONE
             panelView?.visibility = View.VISIBLE
-            overlayParams.width = dp(overlaySettings.compactWidthDp)
+            overlayParams.width = panelWidthPx()
             overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
             overlayParams.x = panelX
             overlayParams.y = panelY
@@ -1174,13 +1185,14 @@ class OverlayService :
         val root = overlayView as? FrameLayout ?: return
         val bounds = displayBounds()
         val placement = currentPlacement()
+        val panelInset = panelSafeInsetPx()
         val panelMaxX =
-            (bounds.width() - dp(overlaySettings.compactWidthDp)).coerceAtLeast(0)
+            (bounds.width() - panelWidthPx() - panelInset * 2).coerceAtLeast(0)
         val panelMaxY =
             (bounds.height() - dp(MINIMUM_VISIBLE_HEIGHT_DP)).coerceAtLeast(0)
         val bubbleMaxX = (bounds.width() - dp(BUBBLE_SIZE_DP)).coerceAtLeast(0)
         val bubbleMaxY = (bounds.height() - dp(BUBBLE_SIZE_DP)).coerceAtLeast(0)
-        panelX = (placement.panelXFraction * panelMaxX).toInt()
+        panelX = panelInset + (placement.panelXFraction * panelMaxX).toInt()
         panelY = (placement.panelYFraction * panelMaxY).toInt()
         bubbleX = (placement.bubbleXFraction * bubbleMaxX).toInt()
         bubbleY = (placement.bubbleYFraction * bubbleMaxY).toInt()
@@ -1195,7 +1207,7 @@ class OverlayService :
                 overlayParams.y = requireNotNull(bubbleY)
             }
             else -> {
-                overlayParams.width = dp(overlaySettings.compactWidthDp)
+                overlayParams.width = panelWidthPx()
                 overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
                 overlayParams.x = panelX
                 overlayParams.y = panelY
@@ -1219,7 +1231,7 @@ class OverlayService :
             panelView?.visibility == View.VISIBLE &&
             profileSwitcherView == null
         ) {
-            overlayParams.width = dp(overlaySettings.compactWidthDp)
+            overlayParams.width = panelWidthPx()
             overlayParams.height = WindowManager.LayoutParams.WRAP_CONTENT
             panelX = overlayParams.x
             panelY = overlayParams.y
@@ -1232,10 +1244,11 @@ class OverlayService :
         panelX = overlayParams.x
         panelY = overlayParams.y
         val bounds = displayBounds()
-        val maxX = (bounds.width() - dp(overlaySettings.compactWidthDp)).coerceAtLeast(1)
+        val inset = panelSafeInsetPx()
+        val maxX = (bounds.width() - panelWidthPx() - inset * 2).coerceAtLeast(1)
         val maxY = (bounds.height() - dp(MINIMUM_VISIBLE_HEIGHT_DP)).coerceAtLeast(1)
         val placement = currentPlacement().copy(
-            panelXFraction = panelX.toFloat() / maxX,
+            panelXFraction = (panelX - inset).coerceAtLeast(0).toFloat() / maxX,
             panelYFraction = panelY.toFloat() / maxY,
         )
         overlaySettings = withCurrentPlacement(placement)
@@ -1267,10 +1280,23 @@ class OverlayService :
         val bounds = displayBounds()
         val width = when {
             params.width > 0 -> params.width
-            panelView?.visibility == View.VISIBLE -> dp(overlaySettings.compactWidthDp)
+            panelView?.visibility == View.VISIBLE -> panelWidthPx()
             else -> dp(BUBBLE_SIZE_DP)
         }
-        params.x = params.x.coerceIn(0, (bounds.width() - width).coerceAtLeast(0))
+        val safeInset = if (
+            panelView?.visibility == View.VISIBLE &&
+            bubbleView?.visibility != View.VISIBLE &&
+            editorView == null &&
+            profileSwitcherView == null
+        ) {
+            panelSafeInsetPx()
+        } else {
+            0
+        }
+        params.x = params.x.coerceIn(
+            safeInset,
+            (bounds.width() - width - safeInset).coerceAtLeast(safeInset),
+        )
         params.y = params.y.coerceIn(
             0,
             (bounds.height() - dp(MINIMUM_VISIBLE_HEIGHT_DP)).coerceAtLeast(0),
@@ -1289,6 +1315,51 @@ class OverlayService :
         clampOverlayPosition(params)
         overlayView?.let { windowManager.updateViewLayout(it, params) }
     }
+
+    private fun snapPanelToEdge(params: WindowManager.LayoutParams) {
+        val bounds = displayBounds()
+        val inset = panelSafeInsetPx()
+        val width = panelWidthPx()
+        params.x = if (params.x + width / 2 < bounds.width() / 2) {
+            inset
+        } else {
+            (bounds.width() - width - inset).coerceAtLeast(inset)
+        }
+        clampOverlayPosition(params)
+        overlayView?.let { windowManager.updateViewLayout(it, params) }
+    }
+
+    private fun panelWidthPx(): Int {
+        val widthDp = if (
+            resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        ) {
+            overlaySettings.landscapeWidthDp
+        } else {
+            overlaySettings.compactWidthDp
+        }
+        val desired = dp(widthDp)
+        return if (
+            resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+            overlaySettings.avoidGameControls
+        ) {
+            desired.coerceAtMost(
+                (displayBounds().width() - dp(LANDSCAPE_CONTROL_INSET_DP) * 2)
+                    .coerceAtLeast(dp(MINIMUM_SAFE_PANEL_WIDTH_DP)),
+            )
+        } else {
+            desired
+        }
+    }
+
+    private fun panelSafeInsetPx(): Int =
+        if (
+            resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+            overlaySettings.avoidGameControls
+        ) {
+            dp(LANDSCAPE_CONTROL_INSET_DP)
+        } else {
+            0
+        }
 
     private fun displayBounds(): android.graphics.Rect =
         windowManager.currentWindowMetrics.bounds
@@ -1350,11 +1421,13 @@ class OverlayService :
     }
 
     private fun overlayTextScale(): Float =
-        when (activityProfiles.activeProfile.personalization.overlayDensity) {
-            LayoutDensity.COMPACT -> 0.9f
-            LayoutDensity.COMFORTABLE -> 1f
-            LayoutDensity.LARGE -> 1.12f
-        }
+        (
+            when (activityProfiles.activeProfile.personalization.overlayDensity) {
+                LayoutDensity.COMPACT -> 0.9f
+                LayoutDensity.COMFORTABLE -> 1f
+                LayoutDensity.LARGE -> 1.12f
+            }
+            ) * (overlaySettings.textScalePercent / 100f)
 
     private fun startInForeground() {
         val openIntent = PendingIntent.getActivity(
@@ -1424,6 +1497,8 @@ class OverlayService :
         private const val BUBBLE_EDGE_INSET_DP = 8
         private const val BUBBLE_DEFAULT_OFFSET_DP = 140
         private const val MINIMUM_VISIBLE_HEIGHT_DP = 72
+        private const val LANDSCAPE_CONTROL_INSET_DP = 68
+        private const val MINIMUM_SAFE_PANEL_WIDTH_DP = 220
         private const val EXPANDED_LIST_HEIGHT_DP = 430
         private const val OVERLAY_MAP_HEIGHT_DP = 180
         private const val EDITOR_WIDTH_FRACTION = 0.92f

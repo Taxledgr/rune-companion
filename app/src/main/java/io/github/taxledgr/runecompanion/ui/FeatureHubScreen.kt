@@ -231,6 +231,7 @@ fun FeatureHubScreen(
                     featureState = state,
                     toolkitState = toolkitState,
                     activityProfiles = activityProfiles,
+                    viewModel = viewModel,
                 )
             } else {
                 FeatureContent(

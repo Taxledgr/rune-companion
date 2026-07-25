@@ -28,6 +28,7 @@ import io.github.taxledgr.runecompanion.BuildConfig
 import io.github.taxledgr.runecompanion.features.FeaturePreferences
 import io.github.taxledgr.runecompanion.features.FeatureState
 import io.github.taxledgr.runecompanion.features.FeatureStorageDiagnostics
+import io.github.taxledgr.runecompanion.features.FeatureViewModel
 import io.github.taxledgr.runecompanion.personalization.ActivityProfileState
 import io.github.taxledgr.runecompanion.toolkit.ToolkitState
 import io.github.taxledgr.runecompanion.ui.theme.LocalRuneLayout
@@ -50,6 +51,7 @@ internal fun DiagnosticsScreen(
     featureState: FeatureState,
     toolkitState: ToolkitState,
     activityProfiles: ActivityProfileState,
+    viewModel: FeatureViewModel,
 ) {
     val context = LocalContext.current.applicationContext
     val layout = LocalRuneLayout.current
@@ -173,6 +175,31 @@ internal fun DiagnosticsScreen(
                         currentErrors.forEach { error ->
                             Text(error, color = MaterialTheme.colorScheme.error)
                         }
+                    }
+                }
+            }
+        }
+        item {
+            Card {
+                Column(
+                    modifier = Modifier.padding(layout.cardPadding),
+                    verticalArrangement = Arrangement.spacedBy(layout.itemSpacing),
+                ) {
+                    Text("Storage controls", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Rune Companion already avoids a persistent browser cache. This safely " +
+                            "compacts older public-Hiscores snapshots while preserving recent " +
+                            "detail, hourly history, accounts, quest progress, and all manual data.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.optimizeLocalStorage()
+                            refreshGeneration += 1
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Optimize local history")
                     }
                 }
             }

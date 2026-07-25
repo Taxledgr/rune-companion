@@ -1,7 +1,9 @@
 package io.github.taxledgr.runecompanion.ui
 
 import android.net.Uri
+import android.content.Context
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -19,9 +23,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.personalization.AppTab
@@ -45,16 +51,22 @@ internal fun GlobalSearchScreen(
     onOpenWiki: (String) -> Unit,
 ) {
     val layout = LocalRuneLayout.current
+    val context = LocalContext.current
+    val history = remember { SearchHistoryPreferences(context) }
+    var recentQueries by remember { mutableStateOf(history.load()) }
     var query by rememberSaveable { mutableStateOf("") }
-    val entries = globalSearchEntries(featureData, toolkitState)
+    val entries = remember(featureData, toolkitState) {
+        globalSearchEntries(featureData, toolkitState)
+    }
     val results = if (query.isBlank()) {
         entries.filter { it.featureId in QUICK_SEARCH_IDS }.take(12)
     } else {
-        val terms = query.trim().split(Regex("\\s+"))
-        entries.filter { entry ->
-            val searchable = "${entry.title} ${entry.summary} ${entry.keywords}"
-            terms.all { searchable.contains(it, ignoreCase = true) }
-        }.take(MAX_RESULTS)
+        entries.mapNotNull { entry ->
+            searchScore(query, entry).takeIf { it > 0 }?.let { score -> entry to score }
+        }.sortedWith(
+            compareByDescending<Pair<GlobalSearchEntry, Int>> { it.second }
+                .thenBy { it.first.title },
+        ).map { it.first }.take(MAX_RESULTS)
     }
 
     LazyColumn(
@@ -90,6 +102,35 @@ internal fun GlobalSearchScreen(
                 singleLine = true,
             )
         }
+        if (query.isBlank() && recentQueries.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(layout.itemSpacing)) {
+                    Text("Recent searches", fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(layout.itemSpacing),
+                    ) {
+                        recentQueries.forEach { recent ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { query = recent },
+                                label = { Text(recent) },
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                history.clear()
+                                recentQueries = emptyList()
+                            },
+                        ) {
+                            Text("Clear")
+                        }
+                    }
+                }
+            }
+        }
         if (results.isEmpty() && query.isNotBlank()) {
             item {
                 Text(
@@ -101,6 +142,10 @@ internal fun GlobalSearchScreen(
         items(results, key = { "${it.tab}:${it.featureId}:${it.title}" }) { entry ->
             Card(
                 modifier = Modifier.fillMaxWidth().clickable {
+                    query.trim().takeIf(String::isNotBlank)?.let {
+                        history.record(it)
+                        recentQueries = history.load()
+                    }
                     onNavigate(entry.tab, entry.featureId)
                 },
             ) {
@@ -125,6 +170,8 @@ internal fun GlobalSearchScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable {
+                        history.record(query.trim())
+                        recentQueries = history.load()
                         onOpenWiki(
                             "https://oldschool.runescape.wiki/w/Special:Search?search=" +
                                 Uri.encode(query.trim()),
@@ -141,6 +188,83 @@ internal fun GlobalSearchScreen(
                 }
             }
         }
+    }
+}
+
+internal fun searchScore(query: String, entry: GlobalSearchEntry): Int {
+    val normalizedQuery = query.trim().lowercase()
+    if (normalizedQuery.isBlank()) return 0
+    val title = entry.title.lowercase()
+    val searchable = "$title ${entry.summary.lowercase()} ${entry.keywords.lowercase()}"
+    val terms = normalizedQuery.split(Regex("\\s+"))
+    var score = when {
+        title == normalizedQuery -> 240
+        title.startsWith(normalizedQuery) -> 180
+        title.contains(normalizedQuery) -> 140
+        searchable.contains(normalizedQuery) -> 100
+        else -> 0
+    }
+    val words = searchable.split(Regex("[^a-z0-9]+")).filter(String::isNotBlank)
+    terms.forEach { term ->
+        when {
+            title.split(Regex("\\s+")).any { it.startsWith(term) } -> score += 35
+            words.any { it.startsWith(term) } -> score += 24
+            words.any { word -> typoMatch(term, word) } -> score += 12
+            else -> return 0
+        }
+    }
+    return score.coerceAtLeast(1)
+}
+
+private fun typoMatch(term: String, word: String): Boolean {
+    if (term.length < 4 || word.length < 4) return false
+    val allowed = if (term.length >= 8) 2 else 1
+    if (kotlin.math.abs(term.length - word.length) > allowed) return false
+    var previous = IntArray(word.length + 1) { it }
+    term.forEachIndexed { row, character ->
+        val current = IntArray(word.length + 1)
+        current[0] = row + 1
+        word.forEachIndexed { column, other ->
+            current[column + 1] = minOf(
+                current[column] + 1,
+                previous[column + 1] + 1,
+                previous[column] + if (character == other) 0 else 1,
+            )
+        }
+        previous = current
+    }
+    return previous.last() <= allowed
+}
+
+private class SearchHistoryPreferences(context: Context) {
+    private val preferences = context.applicationContext.getSharedPreferences(
+        PREFERENCES_NAME,
+        Context.MODE_PRIVATE,
+    )
+
+    fun load(): List<String> = preferences.getString(KEY_RECENT, "")
+        .orEmpty()
+        .split(SEPARATOR)
+        .filter(String::isNotBlank)
+        .take(MAX_RECENT_SEARCHES)
+
+    fun record(query: String) {
+        val clean = query.trim().take(MAX_QUERY_LENGTH)
+        if (clean.isBlank()) return
+        val updated = (listOf(clean) + load().filterNot { it.equals(clean, true) })
+            .take(MAX_RECENT_SEARCHES)
+        preferences.edit().putString(KEY_RECENT, updated.joinToString(SEPARATOR)).apply()
+    }
+
+    fun clear() {
+        preferences.edit().remove(KEY_RECENT).apply()
+    }
+
+    private companion object {
+        const val PREFERENCES_NAME = "rune_companion_search_history"
+        const val KEY_RECENT = "recent_queries"
+        const val SEPARATOR = "\u001F"
+        const val MAX_RECENT_SEARCHES = 6
     }
 }
 

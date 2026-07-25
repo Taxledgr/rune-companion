@@ -5,6 +5,29 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.10
+
+- Questing now opens a dedicated start-to-finish companion guide for every
+  tracked quest. Each guide has saved inventory, equipment, teleport, warning,
+  and ordered route checklists, plus the live OSRS Wiki quick guide in the
+  private in-app reader for current dialogue, puzzle, and boss details.
+- Shooting Star cards remember the expanded report and a preferred available
+  route. Routes clearly separate the selected or fastest route, available
+  alternatives, and unavailable options based on the active account and
+  configured teleports.
+- Overlay profiles now remember separate portrait and landscape widths, text
+  scale, opacity, orientation-specific position, edge snapping, and a
+  landscape centre-safe option that avoids the usual OSRS side controls.
+  Positions can be reset if a panel is moved somewhere inconvenient.
+- Global search ranks strong matches, tolerates common spelling mistakes, and
+  keeps a small private list of recent searches on the phone.
+- Fresh installs receive a one-screen activity setup for Stars, skilling,
+  questing, Slayer, or bossing. Existing users keep their current setup.
+- Diagnostics can safely compact redundant public-Hiscores history without
+  deleting accounts, manual records, quest progress, or recent detail.
+- Version 1.10 uses Android version code 26 and updates the existing
+  debug-signed installation in place without deleting saved companion data.
+
 ## Version 1.9
 
 - Customization now has Basic and Advanced modes, staged changes, live app and

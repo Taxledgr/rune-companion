@@ -144,7 +144,11 @@ class ActivityProfilePreferences(context: Context) {
         put("selectedModule", selectedModule.name)
         put("moduleOrder", JSONArray(moduleOrder.map(OverlayModule::name)))
         put("compactWidthDp", compactWidthDp)
+        put("landscapeWidthDp", landscapeWidthDp)
         put("opacityPercent", opacityPercent)
+        put("textScalePercent", textScalePercent)
+        put("snapToEdge", snapToEdge)
+        put("avoidGameControls", avoidGameControls)
         put("portraitPlacement", portraitPlacement.toJson())
         put("landscapePlacement", landscapePlacement.toJson())
     }
@@ -163,10 +167,20 @@ class ActivityProfilePreferences(context: Context) {
             "compactWidthDp",
             OverlaySettings.DEFAULT_COMPACT_WIDTH_DP,
         ),
+        landscapeWidthDp = optInt(
+            "landscapeWidthDp",
+            OverlaySettings.DEFAULT_LANDSCAPE_WIDTH_DP,
+        ),
         opacityPercent = optInt(
             "opacityPercent",
             OverlaySettings.DEFAULT_OPACITY_PERCENT,
         ),
+        textScalePercent = optInt(
+            "textScalePercent",
+            OverlaySettings.DEFAULT_TEXT_SCALE_PERCENT,
+        ),
+        snapToEdge = optBoolean("snapToEdge", true),
+        avoidGameControls = optBoolean("avoidGameControls", true),
         portraitPlacement = optJSONObject("portraitPlacement")?.toPlacement()
             ?: OverlayPlacement(),
         landscapePlacement = optJSONObject("landscapePlacement")?.toPlacement()

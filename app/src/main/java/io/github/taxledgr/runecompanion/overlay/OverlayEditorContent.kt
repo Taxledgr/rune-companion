@@ -177,11 +177,47 @@ fun OverlayEditorContent(
                             overlaySettings = updated
                             onOverlaySettingsChanged(updated)
                         },
+                        onOverlayLandscapeWidthChanged = { width ->
+                            val updated = overlaySettings.copy(
+                                landscapeWidthDp = width,
+                            ).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
                         onOverlayOpacityChanged = { opacity ->
                             val updated = overlaySettings.copy(opacityPercent = opacity).normalized()
                             overlaySettings = updated
                             onOverlaySettingsChanged(updated)
                         },
+                        onOverlayTextScaleChanged = { scale ->
+                            val updated = overlaySettings.copy(
+                                textScalePercent = scale,
+                            ).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
+                        onOverlaySnapChanged = { enabled ->
+                            val updated = overlaySettings.copy(snapToEdge = enabled).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
+                        onOverlayAvoidControlsChanged = { enabled ->
+                            val updated = overlaySettings.copy(
+                                avoidGameControls = enabled,
+                            ).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
+                        onOverlayResetPlacement = {
+                            val updated = overlaySettings.copy(
+                                portraitPlacement = OverlayPlacement(),
+                                landscapePlacement = OverlayPlacement(),
+                            ).normalized()
+                            overlaySettings = updated
+                            onOverlaySettingsChanged(updated)
+                        },
+                        onExpandedStarChanged = starViewModel::setExpandedStar,
+                        onPreferredStarRouteChanged = starViewModel::setPreferredRoute,
                         onOpenStarMiners = { openUrl("https://map.starminers.site/") },
                         onOpenUrl = openUrl,
                         editorMode = true,
