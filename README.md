@@ -5,6 +5,15 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.10.6
+
+- Closing the floating panel with **×** now returns to the bubble instead of
+  stopping the overlay service and making the bubble disappear.
+- The main app's **Stop overlay** button and the notification's explicit Stop
+  action remain available when the overlay should actually be shut down.
+- Version 1.10.6 uses Android version code 32 and updates version 1.10.5 in
+  place without deleting saved companion data.
+
 ## Version 1.10.5
 
 - Starting the floating overlay now opens directly as the small Rune Companion

@@ -268,7 +268,11 @@ class OverlayService :
                 minimiseToBubble()
             },
         )
-        header.addView(actionButton("×", "Close Rune Companion panel") { stopSelf() })
+        header.addView(
+            actionButton("×", "Close panel to floating bubble") {
+                minimiseToBubble()
+            },
+        )
         panel.addView(header)
 
         val sectionControls = LinearLayout(this).apply {

@@ -1,5 +1,12 @@
 # Rune Companion 1.10
 
+## 1.10.6 persistent close-to-bubble behavior
+
+- The panel's **×** control now closes the panel back to the bubble.
+- Explicit Stop controls remain unchanged, but an ordinary close can no longer
+  terminate the overlay service unexpectedly.
+- Version `1.10.6` uses Android version code `32`.
+
 ## 1.10.5 bubble-first overlay
 
 - Every new overlay session starts as the compact floating bubble.
