@@ -1,0 +1,101 @@
+package io.github.taxledgr.runecompanion.toolkit
+
+import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
+import io.github.taxledgr.runecompanion.util.readUtf8Response
+import java.io.FileNotFoundException
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+class HiscoreClient {
+    suspend fun lookup(player: String): HiscoreSummary = withContext(Dispatchers.IO) {
+        val cleanPlayer = player.trim()
+        require(cleanPlayer.isNotBlank()) { "Enter an OSRS display name" }
+        val cacheKey = cleanPlayer.lowercase()
+        lookupMutex.withLock {
+            val now = System.currentTimeMillis()
+            lookupCache[cacheKey]
+                ?.takeIf { now - it.savedAtEpochMillis < CACHE_TTL_MILLIS }
+                ?.summary
+                ?.let { return@withLock it }
+            fetch(cleanPlayer).also { summary ->
+                lookupCache[cacheKey] = CachedHiscore(now, summary)
+            }
+        }
+    }
+
+    private fun fetch(cleanPlayer: String): HiscoreSummary {
+        val encoded = URLEncoder.encode(cleanPlayer, StandardCharsets.UTF_8.name())
+        val connection = openTrustedHttpsConnection(
+            "$ENDPOINT?player=$encoded",
+            setOf(ENDPOINT_HOST),
+        )
+        return try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 12_000
+            connection.readTimeout = 12_000
+            connection.setRequestProperty(
+                "User-Agent",
+                AppUserAgent.value,
+            )
+            when (connection.responseCode) {
+                HttpURLConnection.HTTP_NOT_FOUND ->
+                    throw FileNotFoundException("Player not found on the official hiscores")
+                !in 200..299 ->
+                    throw IOException("Official hiscores returned HTTP ${connection.responseCode}")
+            }
+            val lines = connection.readUtf8Response(MAX_RESPONSE_BYTES).lineSequence().toList()
+            parseHiscoreLines(cleanPlayer, lines)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private companion object {
+        const val CACHE_TTL_MILLIS = 2 * 60_000L
+        const val ENDPOINT_HOST = "secure.runescape.com"
+        const val ENDPOINT =
+            "https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws"
+        const val MAX_RESPONSE_BYTES = 2 * 1_024 * 1_024
+        val lookupMutex = Mutex()
+        val lookupCache = mutableMapOf<String, CachedHiscore>()
+    }
+}
+
+private data class CachedHiscore(
+    val savedAtEpochMillis: Long,
+    val summary: HiscoreSummary,
+)
+
+internal fun parseHiscoreLines(player: String, lines: List<String>): HiscoreSummary {
+    val skills = HiscoreCatalog.skillNames.mapIndexedNotNull { index, name ->
+        val values = lines.getOrNull(index)?.trim()?.split(",")
+            ?: return@mapIndexedNotNull null
+        if (values.size < 3) return@mapIndexedNotNull null
+        SkillScore(
+            name = name,
+            rank = values[0].toIntOrNull() ?: -1,
+            level = values[1].toIntOrNull() ?: -1,
+            xp = values[2].toLongOrNull() ?: -1,
+        )
+    }
+    val activities = HiscoreCatalog.activityNames.mapIndexedNotNull { index, name ->
+        val values = lines.getOrNull(HiscoreCatalog.skillNames.size + index)
+            ?.trim()?.split(",") ?: return@mapIndexedNotNull null
+        if (values.size < 2) return@mapIndexedNotNull null
+        val score = values[1].toLongOrNull() ?: return@mapIndexedNotNull null
+        if (score <= 0) return@mapIndexedNotNull null
+        ActivityScore(
+            name = name,
+            rank = values[0].toIntOrNull() ?: -1,
+            score = score,
+        )
+    }
+    return HiscoreSummary(player = player, skills = skills, activities = activities)
+}

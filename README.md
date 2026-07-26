@@ -1,19 +1,401 @@
 # Rune Companion
 
-Rune Companion is an Android companion overlay for Old School RuneScape mobile. The first module shows community-scouted Shooting Stars from the OSRS Star Miners live map.
+Rune Companion is a passive Android companion for Old School RuneScape mobile. It combines community-scouted Shooting Stars with local timers, manual gameplay journals, public prices and hiscores, calculators, and quick-reference links.
 
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
-## Version 0.1
+## Download
 
-- Live Shooting Star worlds, tiers, locations, callers, and report ages
-- Search by world, location, or caller
-- Tier filters
-- A compact, draggable Android overlay
+The current public testing build is available from the
+[latest Rune Companion release](https://github.com/Taxledgr/rune-companion/releases/latest).
+Download the APK asset rather than the automatically generated source-code
+archives. See the [Android installation guide](docs/INSTALLING.md) for safe
+installation, updating, and checksum verification.
+
+> [!WARNING]
+> Version 1.10.7 is a debug-signed public testing build. It is suitable for
+> testing with the current feature set, but it is not yet a permanently
+> release-signed production build.
+
+## Version 1.10.8
+
+- Star Miners rows are now treated as community scout reports rather than
+  guaranteed live stars.
+- Expired depletion estimates and older duplicate reports for the same world
+  are removed before the app, overlay, or alerts display them.
+- Likely-active targets are ordered by estimated remaining mining time instead
+  of allowing every new scout call to reshuffle the most useful routes.
+- Opening a star route pins that world and location through tier and timestamp
+  updates, keeping the selected route at the top of the overlay.
+- Cards now distinguish normal community estimates from reports that are
+  ending soon.
+- Version 1.10.8 uses Android version code 34 and updates version 1.10.7 in
+  place without deleting saved companion data.
+
+## Version 1.10.7
+
+- Wiki pages opened from the floating quest guide now have a **Minimise**
+  control.
+- Minimising keeps the live Wiki reader and quest editor in memory, including
+  the current article, browser history, and scroll position.
+- Tapping the floating bubble resumes the same Wiki page instead of rebuilding
+  the guide from the beginning.
+- Version 1.10.7 uses Android version code 33 and updates version 1.10.6 in
+  place without deleting saved companion data.
+
+## Version 1.10.6
+
+- Closing the floating panel with **×** now returns to the bubble instead of
+  stopping the overlay service and making the bubble disappear.
+- The main app's **Stop overlay** button and the notification's explicit Stop
+  action remain available when the overlay should actually be shut down.
+- Version 1.10.6 uses Android version code 32 and updates version 1.10.5 in
+  place without deleting saved companion data.
+
+## Version 1.10.5
+
+- Starting the floating overlay now opens directly as the small Rune Companion
+  bubble instead of covering gameplay with the full panel.
+- Minimising an open panel also resizes its touchable window to the visible
+  bubble, so surrounding game controls are not blocked.
+- Version 1.10.5 uses Android version code 31 and updates version 1.10.4 in
+  place without deleting saved companion data.
+
+## Version 1.10.4
+
+- Quest Wiki links opened from the enlarged floating editor now stay inside the
+  overlay, keeping the live guide visible over Old School RuneScape.
+- The private Wiki reader includes a **Guide** action to return to the saved
+  quest steps and a **Done** action to close the overlay.
+- Wiki pages remain restricted to the exact HTTPS OSRS Wiki host, with
+  JavaScript, file access, third-party cookies, and mixed content disabled.
+- Version 1.10.4 uses Android version code 30 and updates version 1.10.3 in
+  place without deleting saved companion data.
+
+## Version 1.10.3
+
+- The compact bottom navigation now reserves the phone's real Android
+  navigation-button inset, keeping Rune Companion's icons and labels fully
+  above the Home, Back, and Recents buttons in portrait mode.
+- Version 1.10.3 uses Android version code 29 and updates version 1.10.2 in
+  place without deleting saved companion data.
+
+## Version 1.10.2
+
+- The activity/search header now sits below the Android status icons instead of
+  underneath them.
+- The main bottom navigation is more compact, and duplicate inner system-bar
+  padding no longer leaves an unused strip above it.
+- Version 1.10.2 uses Android version code 28 and updates version 1.10.1 in
+  place without deleting saved companion data.
+
+## Version 1.10.1
+
+- Quest rows in the compact **Quests & Diaries** overlay are now tappable.
+  Selecting a supported quest expands the floating editor directly into that
+  quest's saved inventory, equipment, teleport, and start-to-finish guide.
+- Version 1.10.1 uses Android version code 27 and updates version 1.10.0 in
+  place without deleting saved companion data.
+
+## Version 1.10
+
+- Questing now opens a dedicated start-to-finish companion guide for every
+  tracked quest. Each guide has saved inventory, equipment, teleport, warning,
+  and ordered route checklists, plus the live OSRS Wiki quick guide in the
+  private in-app reader for current dialogue, puzzle, and boss details.
+- Shooting Star cards remember the expanded report and a preferred available
+  route. Routes clearly separate the selected or fastest route, available
+  alternatives, and unavailable options based on the active account and
+  configured teleports.
+- Overlay profiles now remember separate portrait and landscape widths, text
+  scale, opacity, orientation-specific position, edge snapping, and a
+  landscape centre-safe option that avoids the usual OSRS side controls.
+  Positions can be reset if a panel is moved somewhere inconvenient.
+- Global search ranks strong matches, tolerates common spelling mistakes, and
+  keeps a small private list of recent searches on the phone.
+- Fresh installs receive a one-screen activity setup for Stars, skilling,
+  questing, Slayer, or bossing. Existing users keep their current setup.
+- Diagnostics can safely compact redundant public-Hiscores history without
+  deleting accounts, manual records, quest progress, or recent detail.
+- Version 1.10 uses Android version code 26 and updates the existing
+  debug-signed installation in place without deleting saved companion data.
+
+## Version 1.9
+
+- Customization now has Basic and Advanced modes, staged changes, live app and
+  overlay previews, clearer per-profile summaries, and consistent Save, Cancel,
+  Reset, Undo, and profile-delete confirmation.
+- App and overlay density can be configured independently as Compact,
+  Comfortable, or Large. Each activity profile remembers both choices.
+- Global search finds existing tools, settings, saved teleports, Slayer cards,
+  loadouts, accounts, reminders, active tasks, and full OSRS Wiki results.
+- Floating editing is more focused: Timers and Trip open separate workspaces,
+  as do Slayer and Checklist, while feature-backed sections still open their
+  exact editor.
+- Stars, Hiscores, and Wiki prices show their source, last successful update,
+  cached/offline status, and a direct retry action.
+- A private Diagnostics helper reports local database/recovery health, storage
+  size, scheduled background work, public-data status, and security boundaries.
+  Nothing from diagnostics is uploaded.
+- Large structured gameplay data is now written transactionally to a private
+  SQLite database with a last-known-good recovery row. A preference mirror is
+  retained for encrypted export, Android transfer, and backward-safe restore.
+- Adds reversible Undo for structured gameplay changes and destructive toolkit
+  actions such as deleting timers, journal entries, price watches, and tracked
+  players.
+- The one-command updater can build, create private pre/post-update safety
+  archives under the Windows user's Local AppData, install with `adb install -r`,
+  verify saved preference files, and report the installed version and APK hash.
+- Search, diagnostics, edit controls, layout metrics, and database storage are
+  isolated into smaller modules, with new unit and on-device Compose regression
+  tests.
+- Version 1.9 uses Android version code 25 and updates the existing debug-signed
+  installation in place without deleting saved companion data.
+
+### One-command private update
+
+With Android wireless debugging connected, build and update in place using:
+
+```powershell
+.\scripts\install-update.ps1 -Device PHONE_IP:PORT -Build
+```
+
+The updater never uninstalls Rune Companion. Its local safety archives are
+stored outside the repository under `%LOCALAPPDATA%\RuneCompanion\update-backups`.
+They may contain locally saved companion information, so keep them private.
+
+## Version 1.8.3
+
+- Android Back navigation is now installed only when a screen has an Activity
+  back dispatcher. This keeps normal in-app Back behavior while allowing every
+  editor to open safely inside the floating overlay service.
+- Version 1.8.3 uses Android version code 24 and updates the existing
+  debug-signed installation in place without deleting saved companion data.
+
+## Version 1.8.2
+
+- Android Back now closes the current helper or settings page first, then
+  returns to the activity profile's chosen start tab instead of unexpectedly
+  exiting Rune Companion.
+- Large saved companion data is loaded, encoded, and backed up away from the
+  UI thread. Existing content remains visible while a disk refresh completes.
+- Fresh Hiscores, world-directory, and Wiki price responses are shared between
+  foreground screens, the overlay, alerts, and background refreshes to reduce
+  duplicate downloads, parsing, battery use, and data use.
+- The overlay caches gameplay-helper content between refreshes instead of
+  repeatedly parsing the full saved-data file. Idle timer screens also stop
+  ticking when no countdown is active.
+- Loading feedback, screen-reader behavior, press feedback, and minimum
+  48-dp touch targets have been improved throughout the main navigation,
+  Shooting Star cards, filters, activity switcher, and floating overlay.
+- Version 1.8.2 uses Android version code 23 and updates the existing
+  debug-signed installation in place without deleting accounts, profiles,
+  filters, routes, timers, or journals.
+
+## Version 1.8.1
+
+- HTTPS destinations are restricted to exact trusted hosts, redirects and
+  cleartext traffic are rejected, and downloaded responses are size-limited.
+- The in-app Wiki no longer runs JavaScript and cannot access local files,
+  content providers, mixed HTTP content, third-party cookies, or WebView
+  debugging.
+- Android backups now include only Rune Companion preference files and require
+  encrypted cloud backup. Manual exports use a stronger authenticated RC2
+  format while retaining RC1 import compatibility.
+- Overlay entry points remain private to Rune Companion. Obscured touches,
+  external overlays while the app is open, recents screenshots, and detailed
+  lock-screen notification content are blocked.
+- Release builds are minified and support protected environment-based signing.
+  CI now checks security invariants, dependencies, release lint, and CodeQL.
+- Version 1.8.1 uses Android version code 22 and updates the existing
+  debug-signed installation in place without deleting accounts, profiles,
+  filters, routes, timers, or journals.
+
+## Version 1.8
+
+- **Activity Profiles** save complete reusable setups for Shooting Stars,
+  skilling, questing, Slayer, bossing, or a custom activity.
+- Every profile keeps its own start screen, navigation tabs, pinned helpers,
+  selected OSRS character, Shooting Star safety/location filters, and floating
+  overlay configuration.
+- Five useful profiles are created automatically without replacing the setup
+  from an earlier Rune Companion installation.
+- Profiles can be switched, copied, renamed, and deleted under
+  **More → Customize & settings → Customize experience**.
+- Long-press the minimised floating bubble—or tap **◆** in the compact
+  panel—to switch the complete setup without leaving OSRS.
+- Overlay sections can now be reordered, and each profile remembers its panel
+  size, opacity, selected section, and separate portrait/landscape panel and
+  bubble positions.
+- Activity Profiles are included in encrypted export/import, Android cloud
+  backup, phone-to-phone transfer, and in-place app upgrades.
+- Version 1.8 uses Android version code 21 and updates earlier versions in place
+  without deleting saved accounts, settings, filters, routes, or journals.
+
+## Version 1.7
+
+- The compact overlay now has an **Edit** action for every configured section.
+- Editing expands into a focusable 92% × 88% floating workspace while OSRS
+  remains visible and running behind it.
+- Each of the 27 overlay sections opens its matching existing Rune Companion
+  editor, including Stars, timers, Slayer, journals, accounts, goals,
+  teleports, economy tools, supplies, and session logs.
+- Text fields use the Android keyboard normally; catalogue selectors, Add, Save,
+  and other existing form controls work without leaving the overlay.
+- **Done** returns to the compact panel at its previous position, and saved data
+  is immediately reflected in that panel.
+- Version 1.7 uses Android version code 20 and updates earlier versions in place
+  without deleting saved profiles, settings, filters, routes, or journals.
+
+## Version 1.6
+
+- Personalize the app around Shooting Stars, skilling and Mining, questing,
+  Slayer, bossing, or a fully custom setup.
+- Choose which screen—or which pinned gameplay helper—opens when Rune Companion
+  starts.
+- Show, hide, and reorder the bottom navigation while keeping a safe route back
+  to **More → App settings**.
+- Pin up to six of the 30 gameplay helpers to a Quick access section with useful
+  saved-data summaries.
+- Focus presets configure a sensible start screen, navigation order, and pinned
+  tools in one tap; every individual choice remains editable.
+- Existing installations default to Stars and retain all saved accounts,
+  filters, timers, journals, routes, and overlay settings.
+- Personalization is stored locally, included in encrypted backups, and restored
+  immediately after import.
+- Version 1.6 uses Android version code 19 and updates earlier versions in place.
+
+## Version 1.5.1
+
+- Network refreshes now run only while their screens are useful, share cached
+  item data, ignore duplicate requests, and retain the last successful star feed
+  during temporary connection failures.
+- Price search waits briefly for typing to finish and discards outdated results.
+- Tabs preserve their scroll position and in-progress form text when switching.
+- Shooting Star controls are condensed into a quick status card so filters and
+  live results appear much sooner; timer and journal builders stay collapsed
+  until requested.
+- Backup imports reload saved accounts, timers, filters, and overlay settings
+  immediately without restarting the app.
+- The floating bubble opens on the right side by default instead of covering app
+  headings, and the overlay skips Star Miners requests when neither Stars nor
+  star alerts are enabled.
+- Version 1.5.1 uses Android version code 18 and updates earlier versions in
+  place without deleting saved profiles, settings, or journals.
+
+## Version 1.5
+
+- The floating window is now a configurable Rune Companion dashboard instead
+  of a Shooting Stars-only panel.
+- Enable any combination of 27 live, progress, planning, reference, economy,
+  and history sections, then use **‹** and **›** in the panel to switch between
+  them without returning to the app.
+- Available overlay sections include stars, timers, Slayer, trip timer,
+  checklist, player stats, goals, quests and diaries, farming, routines, itineraries, loadouts,
+  teleports, GE tools, loot, supplies, Wilderness risk, and activity sessions.
+- The compact bubble displays the current section's symbol and count. Its
+  enabled sections and current selection persist across app restarts, in-place
+  updates, encrypted backups, and phone transfers.
+- Shooting Stars retain their expandable fastest routes, exact directions,
+  shortcuts, requirements, Wilderness warnings, and landing-site maps.
+- Version 1.5 uses Android version code 17 and updates earlier versions in place
+  without deleting saved profiles or journals.
+
+## Version 1.3
+
+- A first-class **Wiki** tab with full in-app OSRS Wiki search and article reading;
+  existing Wiki buttons now open inside Rune Companion instead of switching apps
+- Boss readiness plans combining public skill checks with manual quest, gear,
+  supply, mechanics, route, and loadout checks
+- Smart gameplay itineraries built from saved farming patches, routines, or
+  selectable travel presets, with safe regional ordering
+- GE-priced gear upgrade plans, itemised loot ledger, supply/charge locker, and
+  Wilderness risk estimates
+- Automatic public boss, raid, clue, and activity counter goals
+- Quest and Achievement Diary navigation with public skill readiness and manual
+  completion state
+- OSRS Wiki real-time GE history charts with price range, spread, and volume
+- Searchable monster/drop quick reference with full current Wiki articles in app
+- All ten expansion tools persist across in-place updates and encrypted backup
+- Version 1.3 uses Android version code 14 and updates version 1.2 in place
+
+See [the complete 1.3 release notes](docs/RELEASE_NOTES_1.3.md).
+
+- Live Shooting Star worlds, tiers, locations, callers, arrival windows, and estimated depletion windows
+- Expandable fastest-route guidance on every one of the 82 star cards, ranked
+  against the selected player's configured teleports and public Agility/Magic levels
+- Alternative teleports, walking directions, shortcut requirements, route maps,
+  and prominent Wilderness warnings on each star card
+- Tier, members/F2P, official server-region, world, and location filters
+- Tick/untick checklist covering all 82 Star Miners landing sites in 15 areas
+- Safe-world mode that removes PvP, Bounty Hunter, High Risk, Wilderness PK, Deadman, and similarly labelled worlds
+- Saved world, tier, and favourite-location alerts with quiet hours
+- Configurable alert sounds through Android notification settings
+- Reliable background checks through Android WorkManager
+- A draggable Android overlay with compact, bubble, and near-full editing modes
 - One-minute refresh interval and manual refresh
 - Direct link to the official Star Miners live map
-- No account login and no collection of personal information
+- Farming, birdhouse, daily, and custom reminders
+- Manual boss/raid stopwatch and Slayer kill counter
+- Local quest, diary, collection-log goal, and gear/inventory loadout checklists
+- Grand Exchange item watchlist using the OSRS Wiki public prices API
+- Player lookup using Jagex's public OSRS hiscores
+- Saved player profile with automatic hiscore updates, local progress baseline, and per-skill XP gains
+- OSRS XP, cumulative drop-rate, and supply-cost calculators
+- Clue, fairy-ring, teleport, quest, diary, and boss reference links
+- Multiple public-hiscore profiles with timestamped daily and weekly XP history
+- Automatic named public-hiscore counters for Sailing, clues, minigames, raids,
+  and current bosses, with daily and weekly gains
+- Skill-goal and banked-XP planners
+- GE target notifications, portfolio cost basis, 1% tax, and net-profit tracking
+- Farming patch dashboard, Slayer knowledge cards, and boss/raid session logs
+- Searchable category tabs and auto-filled presets for 151 Slayer assignments,
+  25+ detailed Slayer cards, farming patches/crops, banked XP, collection
+  targets, activities, routines, Combat Achievement tiers, and loadouts
+- Collection dry-streak probabilities and Combat Achievement planning
+- Searchable clue helper and points-based minigame calculator
+- Player-specific teleport route planner covering spellbooks, tablets, jewellery,
+  special items, quest unlocks, house location, POH facilities, and Portal Nexus destinations
+- Manual DPS, consumable, daily/weekly routine, and shareable loadout tools
+- Android home-screen widget for the selected public-hiscore profile
+- Passphrase-protected AES-256-GCM backup and restore
+- Update-safe saved data with schema migration, last-known-good recovery, encrypted
+  Android cloud backup, and device-to-device transfer
+- No account login, ad SDK, analytics, or collection of personal information
+
+The persistent area and safe-world filters apply consistently to the main Stars list, floating overlay, and matching-star notifications.
+
+## In-app OSRS Wiki
+
+The **Wiki** bottom tab searches and displays the complete current
+[Old School RuneScape Wiki](https://oldschool.runescape.wiki/) inside Rune
+Companion. Wiki links from Shooting Star routes, clues, bosses, monsters,
+quests, diaries, death mechanics, and quick references use the same reader.
+
+Articles are loaded directly from the Wiki rather than copied into the APK.
+This keeps information current, avoids an enormous stale offline snapshot, and
+preserves the Wiki's authorship, attribution, links, history, and
+CC BY-NC-SA 3.0 notices. External non-Wiki links still ask Android to open the
+appropriate app.
+
+## Shooting Star routes
+
+Every live star card includes a route summary. Tap **All routes & shortcuts** to see:
+
+- the fastest route enabled by **More → Teleport route planner → My teleports**;
+- every other known teleport route for that landing site;
+- the walk from the teleport destination to the crashed star;
+- Agility shortcut levels taken from the selected account's public hiscores;
+- quest, diary, equipment, coin, and transport requirements that still need a
+  manual check; and
+- a prominent warning on every Wilderness route.
+
+The 82-site route keys match the Star Miners feed. Route ordering is based on the
+current [OSRS Wiki Shooting Stars landing-site tables](https://oldschool.runescape.wiki/w/Shooting_Stars#Landing_sites).
+The app does not read the player's live position, inventory, run energy, or game
+state, so “fastest available” means the highest-ranked route whose teleport and
+public skill requirements match the profile configured in Rune Companion.
 
 ## Safety boundary
 
@@ -24,7 +406,7 @@ Rune Companion is intentionally a passive companion:
 - It does not inject code into the game client.
 - It does not automate taps, gestures, or gameplay.
 - It does not use Accessibility Services.
-- It does not capture the screen or use OCR in version 0.1.
+- It does not capture the screen or use OCR.
 
 The overlay uses Android's standard `TYPE_APPLICATION_OVERLAY` window after the user grants the system "display over other apps" permission. See [docs/COMPLIANCE.md](docs/COMPLIANCE.md) for the design rules.
 
@@ -42,6 +424,78 @@ Rune Companion:
 
 Please use the Star Miners service respectfully. If its maintainers publish an official API or usage policy, this project should migrate to it.
 
+## Alert timing
+
+The app and active overlay refresh through a shared, rate-limited feed cache once per minute. When both are closed, Android WorkManager schedules a network-constrained check at intervals of at least 15 minutes. Android may delay background work for battery optimisation, so background alerts are useful but not guaranteed to be immediate.
+
+Star depletion text is an estimate based on the reported tier and seven minutes per continuously mined layer. Players pausing, mining progress before the report, and stale community reports can all make the real time differ.
+
+## Other public data
+
+- Members/F2P and physical server-region labels come from the [official OSRS world list](https://oldschool.runescape.com/slu?order=wlmAp).
+- Grand Exchange prices come from the [OSRS Wiki real-time prices API](https://prices.runescape.wiki/).
+- Player levels, ranks, and XP come from the [official OSRS hiscores](https://secure.runescape.com/m=hiscore_oldschool/overall).
+
+All timers, journal entries, loadouts, goals, teleport selections, and watchlists are stored locally on the phone.
+
+## Teleport planner
+
+Open **More → Teleport route planner → My teleports** and select what that player
+can actually use:
+
+- available spellbooks and quest/diary unlocks;
+- teleport tablets currently carried or banked;
+- teleport jewellery and special teleport items;
+- player-owned house access and house portal location;
+- mounted jewellery, fairy ring, spirit tree, obelisk, and other POH facilities; and
+- each configured portal chamber or Portal Nexus destination.
+- custom or newly released teleport items and their destinations.
+
+The selected account's public hiscores provide its Magic level. Jagex's hiscores
+do not expose inventory, bank, active spellbook, quests, diaries, item charges, or
+POH configuration, so those capabilities cannot be detected automatically without
+inspecting the game client. Rune Companion intentionally requires the player to
+configure them and never uses screen capture, OCR, Accessibility Services, or client hooks.
+
+## Automatic player stats
+
+Enter an OSRS display name under **More → App settings → Tracked player**. Rune Companion immediately loads public skill levels, ranks, and XP, then:
+
+- refreshes at most every 10 minutes while the app is open;
+- asks Android WorkManager to refresh every 15 minutes when the app is closed;
+- stores the latest and baseline snapshots locally; and
+- shows total and per-skill XP gained since the baseline; and
+- records named public boss, raid, clue, minigame, collection-log, and Sailing
+  counters for automatic 24-hour and 7-day progress.
+
+Android may delay background work because of battery optimisation or network conditions, and the official hiscores can lag behind recent in-game XP. No Jagex login, password, or game-client access is used.
+
+For several characters, use **More → Multi-account profiles**. These profiles
+refresh every 10 minutes while Rune Companion is open (and through Android's
+15-minute background scheduler), retaining recent snapshots plus compact hourly
+history for the daily and weekly XP view.
+
+## Automatic data and selectable presets
+
+Rune Companion automates data that is available without inspecting the game:
+
+- public skills, XP, boss KCs, raid completions, clues, minigames, Sailing, and
+  collection-log count from Jagex hiscores;
+- item names and live prices from the OSRS Wiki price API;
+- worlds from Jagex and Shooting Stars from Star Miners; and
+- growth times, Slayer references, drop-rate defaults, routines, and loadout
+  starting points from the app's selectable catalogues.
+
+Choose **Preset** in a supported tool, select a category tab, and search or tap
+an entry. The fields are filled automatically and remain editable before saving.
+Choose **Custom** for anything not in the catalogue.
+
+Inventory, bank contents, equipped items, current Slayer assignment, quest and
+diary state, POH unlocks, current position, loot, and supply use are not exposed
+by public hiscores. Those remain explicit selections or local counters so Rune
+Companion can stay passive and avoid screen capture, OCR, Accessibility Services,
+or game-client hooks.
+
 ## Build
 
 Requirements:
@@ -49,15 +503,65 @@ Requirements:
 - Android Studio with Android SDK 35
 - JDK 17 or newer
 
-Open the repository in Android Studio, let Gradle sync, and run the `app` configuration on an Android 9.0 (API 28) or newer device.
+Open the repository in Android Studio, let Gradle sync, and run the `app`
+configuration on an Android 11 (API 30) or newer device.
 
 From a terminal:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest assembleDebug
+.\gradlew.bat testDebugUnitTest securityCheck lintDebug lintRelease assembleDebug assembleRelease
 ```
 
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+
+If a cloud-sync client locks Gradle's generated files, use an external build directory:
+
+```powershell
+.\gradlew.bat -PruneCompanionBuildDir="$env:TEMP\rune-companion-build" testDebugUnitTest lintDebug assembleDebug
+```
+
+## Install on an Android phone
+
+### With Android Studio or ADB
+
+1. On the phone, enable Developer options by tapping **Build number** seven times.
+2. Enable **USB debugging** and connect the phone by USB.
+3. Approve the computer prompt on the phone.
+4. Run:
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r ".\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+For later updates, use the fail-safe update script:
+
+```powershell
+.\scripts\install-update.ps1 -Device "PHONE_IP:WIRELESS_DEBUGGING_PORT" `
+  -ApkPath ".\app\build\outputs\apk\debug\app-debug.apk"
+```
+
+The script only performs an in-place Android update. It never uninstalls Rune
+Companion or clears storage. If Android reports an incompatible signature or a
+lower version code, build with the same signing key and a higher version instead
+of uninstalling—the uninstall would erase private app data.
+
+Since Rune Companion 1.1.1, the app also keeps a last-known-good copy of its profile/toolkit
+documents, migrates the original tracked-player profile into the multi-account
+list, and opts its preferences into encrypted Android backup and phone-to-phone
+transfer. Android cloud restore depends on backup being enabled for the phone's
+Google account. The manual encrypted backup under **More → Encrypted backup**
+remains the most portable backup.
+
+### Without ADB
+
+Copy the versioned APK to the phone, open it from the Files app, and allow **Install unknown apps** for that Files app when Android asks. Leave Play Protect enabled. After installation, grant notifications and **Display over other apps** only if you want alerts and the floating panel.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for private vulnerability reporting and release
+signing requirements, and
+[docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md) for the app's trust
+boundaries and privacy model. Never commit a signing keystore or its passwords.
 
 ## Permissions
 
@@ -66,15 +570,11 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 | Internet | Fetch the read-only Shooting Stars feed |
 | Display over other apps | Show the user-controlled floating panel |
 | Foreground service | Keep an enabled overlay alive while the app is backgrounded |
-| Notifications | Display Android's required foreground-service notification |
+| Notifications | Display star matches, gameplay timers, and Android's required foreground-service notification |
 
 ## Roadmap
 
-- Saved world and tier filters
-- Star arrival/depletion countdowns based only on feed data
-- Optional notifications for matching stars
-- Data-source abstraction for an official Star Miners API
-- Additional passive OSRS reference tools
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the prioritised, rules-conscious feature list.
 
 ## Licence
 

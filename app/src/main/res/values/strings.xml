@@ -1,13 +1,26 @@
 <resources>
     <string name="app_name">Rune Companion</string>
+    <string name="widget_description">Selected OSRS account and latest public hiscore summary</string>
     <string name="overlay_channel_name">Rune Companion overlay</string>
     <string name="overlay_notification_title">Rune Companion overlay is active</string>
-    <string name="overlay_notification_text">Showing OSRS Shooting Stars reports</string>
+    <string name="overlay_notification_text">Showing your configured Rune Companion sections</string>
     <string name="overlay_loading">Loading Star Miners…</string>
     <string name="overlay_updating">Updating Star Miners…</string>
-    <plurals name="overlay_live_reports">
-        <item quantity="one">%1$d live report • drag title to move</item>
-        <item quantity="other">%1$d live reports • drag title to move</item>
+    <string name="overlay_header_title">%1$s  %2$s</string>
+    <string name="overlay_module_status">%1$s • %2$s</string>
+    <plurals name="overlay_star_status">
+        <item quantity="one">%1$s • %2$d likely-active report • tap to pin route</item>
+        <item quantity="other">%1$s • %2$d likely-active reports • tap to pin route</item>
     </plurals>
+    <string name="overlay_bubble_text">%1$s\n%2$d</string>
+    <string name="widget_tap_to_open">Tap to open</string>
+    <string name="star_alert_channel_name">Shooting Star matches</string>
+    <string name="star_alert_channel_description">Notifications for saved Shooting Star worlds and tiers</string>
+    <string name="star_alert_single_title">Tier %1$d • World %2$d</string>
+    <plurals name="star_alert_multiple_title">
+        <item quantity="one">%1$d matching Shooting Star</item>
+        <item quantity="other">%1$d matching Shooting Stars</item>
+    </plurals>
+    <string name="star_alert_summary_line">W%1$d T%2$d • %3$s • %4$s</string>
     <string name="stop">Stop</string>
 </resources>

@@ -18,5 +18,19 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
-      - name: Test, lint, and assemble debug APK
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+      - name: Test, security-check, lint, and assemble APKs
+        run: >-
+          ./gradlew --no-daemon
+          testDebugUnitTest securityCheck
+          lintDebug lintRelease
+          assembleDebug assembleRelease
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Reject vulnerable dependency changes
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: moderate

@@ -13,3 +13,42 @@ fun reportAge(calledAt: Instant, now: Instant = Instant.now()): String {
         else -> "${minutes / 60} hrs ago"
     }
 }
+
+fun starTimingSummary(
+    calledAt: Instant,
+    tier: Int,
+    minimumArrival: Instant?,
+    maximumArrival: Instant?,
+    now: Instant = Instant.now(),
+): String? {
+    if (tier in 1..9) {
+        val estimatedEnd = calledAt.plusSeconds(tier * 7L * 60L)
+        val remainingSeconds = Duration.between(now, estimatedEnd).seconds
+        return if (remainingSeconds > 0) {
+            val remainingMinutes = (remainingSeconds + 59) / 60
+            if (remainingMinutes <= 7) {
+                "Ending soon • est. $remainingMinutes min remaining"
+            } else {
+                "Community estimate • $remainingMinutes min remaining"
+            }
+        } else {
+            "Estimate expired • confirm before travelling"
+        }
+    }
+
+    if (minimumArrival == null && maximumArrival == null) return null
+    val minimumMinutes = minimumArrival?.let {
+        Duration.between(now, it).toMinutes().coerceAtLeast(0)
+    }
+    val maximumMinutes = maximumArrival?.let {
+        Duration.between(now, it).toMinutes().coerceAtLeast(0)
+    }
+    return when {
+        maximumArrival != null && now.isAfter(maximumArrival) -> "Arrival window passed"
+        minimumArrival != null && now.isBefore(minimumArrival) && maximumMinutes != null ->
+            "Arrival in ${minimumMinutes ?: 0}–$maximumMinutes min"
+        maximumMinutes != null -> "Landing window now • within $maximumMinutes min"
+        minimumMinutes != null -> "Expected in about $minimumMinutes min"
+        else -> null
+    }
+}

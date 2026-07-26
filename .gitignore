@@ -10,3 +10,7 @@ captures/
 app/build/
 *.apk
 *.aab
+*.jks
+*.keystore
+keystore.properties
+local-update-backups/

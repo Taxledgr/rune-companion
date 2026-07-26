@@ -16,4 +16,6 @@ data class ShootingStar(
 data class StarFeed(
     val stars: List<ShootingStar>,
     val fetchedAt: Instant,
+    val sourceReportCount: Int = stars.size,
+    val excludedReportCount: Int = 0,
 )

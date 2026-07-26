@@ -14,9 +14,24 @@ Rune Companion is designed as a passive, user-controlled Android companion rathe
 
 ## Current Android behaviour
 
-The app fetches public Shooting Stars reports over HTTPS and displays them in its own activity or an Android application-overlay window. The user must explicitly grant the overlay permission and start the overlay. A persistent Android notification is shown while it is running.
+The app fetches public Shooting Stars reports over HTTPS and displays them in its own activity, Android notifications, or an Android application-overlay window. The user must explicitly grant notification and overlay permissions. The user must also start the overlay, and a persistent Android notification is shown while it is running.
 
-Version 0.1 does not request screen-capture permission and contains no OCR implementation.
+Saved alert filters, reminders, journal entries, loadouts, goals, stopwatches, watchlists, teleport selections, and hiscore snapshots remain on the device. Price and hiscore lookups contain only the item query or player name the user deliberately enters. Rune Companion does not request screen-capture or Accessibility Service permission and contains no OCR implementation.
+
+Shooting Star directions are static reference data. Routes are ranked using
+teleports the user deliberately marks as available and Magic/Agility levels from
+public hiscores. The app does not determine the player's live position, carried
+items, run energy, active spellbook, quest state, or route progress, and does not
+send movement or interaction input to the OSRS client.
+
+The app also reads Jagex's public world list and hiscores, the OSRS Wiki public prices API, and opens reference pages in the user's browser. Jagex's current world activity labels are used to identify PvP, Bounty Hunter, High Risk, Wilderness PK, Deadman, and similarly dangerous worlds. It never signs into a Jagex account or submits input to the OSRS client.
+
+Version 1.3 displays OSRS Wiki pages in an Android WebView owned by Rune
+Companion. Only `oldschool.runescape.wiki` pages stay inside that reader;
+external hosts are handed to Android. The app does not scrape, repackage, or
+silently mirror the Wiki. It preserves the original pages, attribution, revision
+history, links, and licence notices. Searches and pages load only when the player
+opens or searches for them.
 
 ## References
 
@@ -24,5 +39,8 @@ Version 0.1 does not request screen-capture permission and contains no OCR imple
 - [Jagex rules](https://legal.jagex.com/docs/rules)
 - [Android application overlay permission](https://developer.android.com/reference/android/Manifest.permission#SYSTEM_ALERT_WINDOW)
 - [Star Miners live map](https://map.starminers.site/)
+- [Official OSRS world list](https://oldschool.runescape.com/slu?order=wlmAp)
+- [OSRS Wiki prices API](https://prices.runescape.wiki/)
+- [Official OSRS hiscores](https://secure.runescape.com/m=hiscore_oldschool/overall)
 
 Rules and platform policies can change. This file records the project's engineering boundary; it is not legal advice or a guarantee that Jagex will approve a particular feature.

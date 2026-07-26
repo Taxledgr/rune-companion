@@ -3,7 +3,9 @@ package io.github.taxledgr.runecompanion.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import io.github.taxledgr.runecompanion.personalization.LayoutDensity
 
 val RuneGold = Color(0xFFF4C95D)
 val RuneCyan = Color(0xFF53D8D4)
@@ -26,9 +28,14 @@ private val RuneColorScheme = darkColorScheme(
 )
 
 @Composable
-fun RuneCompanionTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = RuneColorScheme,
-        content = content,
-    )
+fun RuneCompanionTheme(
+    layoutDensity: LayoutDensity = LayoutDensity.COMFORTABLE,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(LocalRuneLayout provides layoutDensity.metrics()) {
+        MaterialTheme(
+            colorScheme = RuneColorScheme,
+            content = content,
+        )
+    }
 }

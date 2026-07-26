@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <include domain="sharedpref" path="rune_companion_toolkit.xml" />
+        <include domain="sharedpref" path="rune_companion_features.xml" />
+        <include domain="sharedpref" path="rune_companion_overlay.xml" />
+        <include domain="sharedpref" path="rune_companion_personalization.xml" />
+        <include domain="sharedpref" path="rune_companion_activity_profiles.xml" />
+        <include domain="sharedpref" path="shooting_star_alerts.xml" />
+        <include domain="sharedpref" path="shooting_star_filters.xml" />
+        <include domain="sharedpref" path="rune_companion_star_display.xml" />
+        <include domain="sharedpref" path="rune_companion_search_history.xml" />
+        <include domain="sharedpref" path="rune_companion_onboarding.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="rune_companion_toolkit.xml" />
+        <include domain="sharedpref" path="rune_companion_features.xml" />
+        <include domain="sharedpref" path="rune_companion_overlay.xml" />
+        <include domain="sharedpref" path="rune_companion_personalization.xml" />
+        <include domain="sharedpref" path="rune_companion_activity_profiles.xml" />
+        <include domain="sharedpref" path="shooting_star_alerts.xml" />
+        <include domain="sharedpref" path="shooting_star_filters.xml" />
+        <include domain="sharedpref" path="rune_companion_star_display.xml" />
+        <include domain="sharedpref" path="rune_companion_search_history.xml" />
+        <include domain="sharedpref" path="rune_companion_onboarding.xml" />
+    </device-transfer>
+</data-extraction-rules>

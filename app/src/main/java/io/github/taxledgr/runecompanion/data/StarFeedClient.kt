@@ -1,8 +1,10 @@
 package io.github.taxledgr.runecompanion.data
 
+import io.github.taxledgr.runecompanion.util.AppUserAgent
+import io.github.taxledgr.runecompanion.util.TrustedUrlPolicy
+import io.github.taxledgr.runecompanion.util.openTrustedHttpsConnection
+import io.github.taxledgr.runecompanion.util.readUtf8Response
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,8 +16,10 @@ class StarFeedClient(
     private val now: () -> Instant = Instant::now,
 ) {
     suspend fun fetch(): StarFeed = withContext(Dispatchers.IO) {
-        val requestUrl = URL("$endpoint?timestamp=${System.currentTimeMillis()}")
-        val connection = requestUrl.openConnection() as HttpURLConnection
+        val connection = openTrustedHttpsConnection(
+            "$endpoint?timestamp=${System.currentTimeMillis()}",
+            setOf(TrustedUrlPolicy.STAR_MINERS_HOST),
+        )
 
         try {
             connection.requestMethod = "GET"
@@ -24,7 +28,7 @@ class StarFeedClient(
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty(
                 "User-Agent",
-                "Rune Companion/0.1 (github.com/Taxledgr/rune-companion)",
+                AppUserAgent.value,
             )
 
             val responseCode = connection.responseCode
@@ -32,14 +36,23 @@ class StarFeedClient(
                 throw IOException("Star Miners returned HTTP $responseCode")
             }
 
-            val json = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = connection.readUtf8Response(MAX_RESPONSE_BYTES)
+            val fetchedAt = now()
+            val sourceReports = ShootingStarJsonParser.parse(json)
+            val currentReports = StarReportPolicy.currentReports(sourceReports, fetchedAt)
             StarFeed(
-                stars = ShootingStarJsonParser.parse(json),
-                fetchedAt = now(),
+                stars = currentReports,
+                fetchedAt = fetchedAt,
+                sourceReportCount = sourceReports.size,
+                excludedReportCount = sourceReports.size - currentReports.size,
             )
         } finally {
             connection.disconnect()
         }
+    }
+
+    private companion object {
+        const val MAX_RESPONSE_BYTES = 4 * 1_024 * 1_024
     }
 }
 
