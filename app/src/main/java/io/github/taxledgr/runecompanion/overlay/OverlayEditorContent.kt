@@ -40,6 +40,7 @@ fun OverlayEditorContent(
     initialQuestId: String? = null,
     onOverlaySettingsChanged: (OverlaySettings) -> Unit,
     onPersonalizationChanged: (PersonalizationSettings) -> Unit,
+    onMinimise: () -> Unit,
     onClose: () -> Unit,
     onStopOverlay: () -> Unit,
 ) {
@@ -93,6 +94,7 @@ fun OverlayEditorContent(
                     onOpenExternal = openExternalUrl,
                     closeLabel = "Guide",
                     onDismiss = onClose,
+                    onMinimise = onMinimise,
                 )
             }
             return@RuneCompanionTheme

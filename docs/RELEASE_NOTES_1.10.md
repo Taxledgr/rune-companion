@@ -1,5 +1,13 @@
 # Rune Companion 1.10
 
+## 1.10.7 stateful Wiki minimising
+
+- The in-overlay Wiki reader now includes a **Minimise** control.
+- The live reader is hidden rather than destroyed, retaining the current Wiki
+  article, its navigation history, and scroll position.
+- Tapping the bubble restores the same Wiki session and expanded quest editor.
+- Version `1.10.7` uses Android version code `33`.
+
 ## 1.10.6 persistent close-to-bubble behavior
 
 - The panel's **×** control now closes the panel back to the bubble.

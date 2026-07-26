@@ -202,7 +202,7 @@ class OverlayService :
         super.onConfigurationChanged(newConfig)
         overlayView?.post {
             val root = overlayView as? FrameLayout ?: return@post
-            if (editorView != null) {
+            if (editorView?.visibility == View.VISIBLE) {
                 resizeEditorWindow(root)
             } else {
                 applyStoredPlacement()
@@ -922,6 +922,11 @@ class OverlayService :
     private fun restorePanel() {
         val panel = panelView ?: return
         val bubble = bubbleView ?: return
+        val editor = editorView
+        if (editor != null && editor.visibility != View.VISIBLE) {
+            restoreEditorFromBubble(editor)
+            return
+        }
         if (panel.visibility == View.VISIBLE) return
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
@@ -975,6 +980,7 @@ class OverlayService :
                             it.copy(personalization = settings)
                         }
                     },
+                    onMinimise = ::minimiseEditorToBubble,
                     onClose = ::closeEditor,
                     onStopOverlay = ::stopSelf,
                 )
@@ -988,6 +994,47 @@ class OverlayService :
             ),
         )
         editorView = editor
+    }
+
+    private fun minimiseEditorToBubble() {
+        val root = overlayView as? FrameLayout ?: return
+        val editor = editorView ?: return
+        val bubble = bubbleView ?: return
+        if (editor.visibility != View.VISIBLE) return
+
+        editor.visibility = View.GONE
+        panelView?.visibility = View.GONE
+        bubble.visibility = View.VISIBLE
+        overlayParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        overlayParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        overlayParams.width = dp(BUBBLE_SIZE_DP)
+        overlayParams.height = dp(BUBBLE_SIZE_DP)
+        val bounds = displayBounds()
+        overlayParams.x = bubbleX ?: (
+            bounds.width() - dp(BUBBLE_SIZE_DP) - dp(BUBBLE_EDGE_INSET_DP)
+            ).coerceAtLeast(0)
+        overlayParams.y = bubbleY ?: (panelY + dp(BUBBLE_DEFAULT_OFFSET_DP))
+        updateBubble(overlaySettings.selectedModule, activeBadgeCount)
+        bubble.contentDescription = "Resume the open Rune Companion guide"
+        if (overlaySettings.snapToEdge) {
+            snapBubbleToEdge(overlayParams)
+        } else {
+            clampOverlayPosition(overlayParams)
+        }
+        bubbleX = overlayParams.x
+        bubbleY = overlayParams.y
+        windowManager.updateViewLayout(root, overlayParams)
+    }
+
+    private fun restoreEditorFromBubble(editor: ComposeView) {
+        val root = overlayView as? FrameLayout ?: return
+        bubbleView?.visibility = View.GONE
+        panelView?.visibility = View.GONE
+        overlayParams.flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        overlayParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        resizeEditorWindow(root)
+        editor.visibility = View.VISIBLE
     }
 
     private fun resizeEditorWindow(root: FrameLayout) {

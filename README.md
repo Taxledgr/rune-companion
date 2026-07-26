@@ -5,6 +5,17 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.10.7
+
+- Wiki pages opened from the floating quest guide now have a **Minimise**
+  control.
+- Minimising keeps the live Wiki reader and quest editor in memory, including
+  the current article, browser history, and scroll position.
+- Tapping the floating bubble resumes the same Wiki page instead of rebuilding
+  the guide from the beginning.
+- Version 1.10.7 uses Android version code 33 and updates version 1.10.6 in
+  place without deleting saved companion data.
+
 ## Version 1.10.6
 
 - Closing the floating panel with **×** now returns to the bubble instead of

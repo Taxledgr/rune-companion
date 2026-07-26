@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -144,6 +145,7 @@ fun WikiReaderScreen(
     onOpenExternal: (String) -> Unit,
     closeLabel: String = "Close",
     onDismiss: (() -> Unit)? = null,
+    onMinimise: (() -> Unit)? = null,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -176,9 +178,6 @@ fun WikiReaderScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 OutlinedButton(onClick = onClose) { Text(closeLabel) }
-                if (onDismiss != null) {
-                    OutlinedButton(onClick = onDismiss) { Text("Done") }
-                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 OutlinedTextField(
@@ -196,6 +195,26 @@ fun WikiReaderScreen(
                     enabled = query.isNotBlank(),
                     modifier = Modifier.padding(top = 8.dp),
                 ) { Text("Go") }
+            }
+            if (onMinimise != null || onDismiss != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        7.dp,
+                        alignment = Alignment.End,
+                    ),
+                ) {
+                    if (onMinimise != null) {
+                        OutlinedButton(onClick = onMinimise) {
+                            Text("Minimise")
+                        }
+                    }
+                    if (onDismiss != null) {
+                        OutlinedButton(onClick = onDismiss) {
+                            Text("Done")
+                        }
+                    }
+                }
             }
         }
         AndroidView(
