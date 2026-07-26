@@ -18,6 +18,21 @@ installation, updating, and checksum verification.
 > testing with the current feature set, but it is not yet a permanently
 > release-signed production build.
 
+## Version 1.10.8
+
+- Star Miners rows are now treated as community scout reports rather than
+  guaranteed live stars.
+- Expired depletion estimates and older duplicate reports for the same world
+  are removed before the app, overlay, or alerts display them.
+- Likely-active targets are ordered by estimated remaining mining time instead
+  of allowing every new scout call to reshuffle the most useful routes.
+- Opening a star route pins that world and location through tier and timestamp
+  updates, keeping the selected route at the top of the overlay.
+- Cards now distinguish normal community estimates from reports that are
+  ending soon.
+- Version 1.10.8 uses Android version code 34 and updates version 1.10.7 in
+  place without deleting saved companion data.
+
 ## Version 1.10.7
 
 - Wiki pages opened from the floating quest guide now have a **Minimise**

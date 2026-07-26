@@ -37,9 +37,14 @@ class StarFeedClient(
             }
 
             val json = connection.readUtf8Response(MAX_RESPONSE_BYTES)
+            val fetchedAt = now()
+            val sourceReports = ShootingStarJsonParser.parse(json)
+            val currentReports = StarReportPolicy.currentReports(sourceReports, fetchedAt)
             StarFeed(
-                stars = ShootingStarJsonParser.parse(json),
-                fetchedAt = now(),
+                stars = currentReports,
+                fetchedAt = fetchedAt,
+                sourceReportCount = sourceReports.size,
+                excludedReportCount = sourceReports.size - currentReports.size,
             )
         } finally {
             connection.disconnect()

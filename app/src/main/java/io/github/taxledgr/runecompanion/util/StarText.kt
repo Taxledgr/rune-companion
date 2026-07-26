@@ -24,11 +24,15 @@ fun starTimingSummary(
     if (tier in 1..9) {
         val estimatedEnd = calledAt.plusSeconds(tier * 7L * 60L)
         val remainingSeconds = Duration.between(now, estimatedEnd).seconds
-        return if (remainingSeconds >= 0) {
+        return if (remainingSeconds > 0) {
             val remainingMinutes = (remainingSeconds + 59) / 60
-            "Estimate: up to $remainingMinutes min left"
+            if (remainingMinutes <= 7) {
+                "Ending soon • est. $remainingMinutes min remaining"
+            } else {
+                "Community estimate • $remainingMinutes min remaining"
+            }
         } else {
-            "Estimate: depletion window passed"
+            "Estimate expired • confirm before travelling"
         }
     }
 

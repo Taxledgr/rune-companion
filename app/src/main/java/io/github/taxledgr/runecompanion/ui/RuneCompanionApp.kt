@@ -56,6 +56,7 @@ import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarLocationCatalog
 import io.github.taxledgr.runecompanion.data.StarMapCatalog
 import io.github.taxledgr.runecompanion.data.StarMapPoint
+import io.github.taxledgr.runecompanion.data.stableReportKey
 import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.RankedStarTravelRoute
 import io.github.taxledgr.runecompanion.features.StarTravelCatalog
@@ -168,6 +169,7 @@ fun RuneCompanionApp(
                 Header(
                     starCount = state.stars.size,
                     fetchedAt = state.fetchedAt?.let { reportAge(it) },
+                    excludedReportCount = state.excludedReportCount,
                 )
             }
             item {
@@ -305,7 +307,7 @@ fun RuneCompanionApp(
             }
             items(
                 items = filteredStars,
-                key = { "${it.world}-${it.locationId}-${it.calledAt}" },
+                key = ShootingStar::stableReportKey,
             ) { star ->
                 StarCard(
                     star = star,
@@ -451,7 +453,11 @@ private fun WorldFilters(
 }
 
 @Composable
-private fun Header(starCount: Int, fetchedAt: String?) {
+private fun Header(
+    starCount: Int,
+    fetchedAt: String?,
+    excludedReportCount: Int,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -474,11 +480,18 @@ private fun Header(starCount: Int, fetchedAt: String?) {
         Text(
             text = when {
                 fetchedAt == null -> "Loading the Star Miners feed…"
-                starCount == 1 -> "1 live report • updated $fetchedAt"
-                else -> "$starCount live reports • updated $fetchedAt"
+                starCount == 1 -> "1 likely-active community report • updated $fetchedAt"
+                else -> "$starCount likely-active community reports • updated $fetchedAt"
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (excludedReportCount > 0) {
+            Text(
+                "$excludedReportCount expired or superseded reports hidden",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -1047,7 +1060,7 @@ private fun StarRouteSummary(
 }
 
 private fun ShootingStar.displayKey(): String =
-    "$world|$locationId|$calledAt"
+    stableReportKey()
 
 @Composable
 private fun StarMapPreview(point: StarMapPoint) {

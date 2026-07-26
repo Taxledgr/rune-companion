@@ -293,7 +293,7 @@ object OverlayContentBuilder {
         nowEpochMillis: Long = System.currentTimeMillis(),
     ): OverlayContent = when (module) {
         OverlayModule.STARS -> content(
-            "${stars.size} live reports • tap one for route & map",
+            "${stars.size} likely-active community reports • tap one to pin its route",
             stars.map { star ->
                 OverlayEntry(
                     "W${star.world}  T${star.tier}  ${star.locationName}",
@@ -301,7 +301,7 @@ object OverlayContentBuilder {
                 )
             },
             stars.size,
-            "No active Shooting Star reports.",
+            "No likely-active Shooting Star reports.",
         )
         OverlayModule.TIMERS -> {
             val entries = toolkit.reminders.sortedBy { it.endsAtEpochMillis }.map { timer ->

@@ -36,6 +36,7 @@ data class StarUiState(
     val isCached: Boolean = false,
     val worlds: Map<Int, WorldInfo> = emptyMap(),
     val displaySettings: StarDisplaySettings = StarDisplaySettings(),
+    val excludedReportCount: Int = 0,
 )
 
 class StarViewModel(application: Application) : AndroidViewModel(application) {
@@ -114,6 +115,7 @@ class StarViewModel(application: Application) : AndroidViewModel(application) {
                         isCached = repositoryStatus.lastFailureMessage != null,
                         worlds = _state.value.worlds,
                         displaySettings = _state.value.displaySettings,
+                        excludedReportCount = feed.excludedReportCount,
                     )
                     alertNotifier.notifyForMatches(feed.stars)
                 }

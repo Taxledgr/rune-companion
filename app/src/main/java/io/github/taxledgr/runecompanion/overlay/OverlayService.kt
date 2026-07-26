@@ -53,6 +53,7 @@ import io.github.taxledgr.runecompanion.data.ShootingStar
 import io.github.taxledgr.runecompanion.data.StarMapCatalog
 import io.github.taxledgr.runecompanion.data.StarMapPoint
 import io.github.taxledgr.runecompanion.data.StarRepository
+import io.github.taxledgr.runecompanion.data.stableReportKey
 import io.github.taxledgr.runecompanion.features.FeaturePreferences
 import io.github.taxledgr.runecompanion.features.FeatureData
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
@@ -546,9 +547,19 @@ class OverlayService :
     }
 
     private fun renderStars(stars: List<ShootingStar>) {
-        val visibleStars = stars.take(MAX_OVERLAY_STARS)
-        if (expandedStarId != null && visibleStars.none { it.overlayId() == expandedStarId }) {
+        val pinnedStar = expandedStarId?.let { id ->
+            stars.firstOrNull { it.overlayId() == id }
+        }
+        if (expandedStarId != null && pinnedStar == null) {
             expandedStarId = null
+        }
+        val visibleStars = buildList {
+            pinnedStar?.let(::add)
+            addAll(
+                stars
+                    .filterNot { it.overlayId() == pinnedStar?.overlayId() }
+                    .take(MAX_OVERLAY_STARS - size),
+            )
         }
         destroyMapViews()
         activeBadgeCount = stars.size
@@ -562,7 +573,7 @@ class OverlayService :
         starContainer?.apply {
             removeAllViews()
             if (visibleStars.isEmpty()) {
-                addView(textView("No active reports", 13f, Color.LTGRAY))
+                addView(textView("No likely-active reports", 13f, Color.LTGRAY))
             } else {
                 visibleStars.forEachIndexed { index, star ->
                     if (index > 0) {
@@ -685,7 +696,11 @@ class OverlayService :
             addView(
                 textView(
                     "${reportAge(star.calledAt)} • ${star.calledBy}" +
-                        if (expanded) " • tap title to hide" else " • tap for route & map",
+                        if (expanded) {
+                            " • pinned through refresh • tap title to hide"
+                        } else {
+                            " • community report • tap to pin route"
+                        },
                     11f,
                     Color.rgb(185, 201, 212),
                 ).apply {
@@ -823,7 +838,7 @@ class OverlayService :
         mapViews.clear()
     }
 
-    private fun ShootingStar.overlayId(): String = "$world|$locationName|$calledAt"
+    private fun ShootingStar.overlayId(): String = stableReportKey()
 
     private fun makeDraggable(
         handle: View,

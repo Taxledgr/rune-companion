@@ -9,8 +9,8 @@
     <string name="overlay_header_title">%1$s  %2$s</string>
     <string name="overlay_module_status">%1$s • %2$s</string>
     <plurals name="overlay_star_status">
-        <item quantity="one">%1$s • %2$d live report • tap one for route &amp; map</item>
-        <item quantity="other">%1$s • %2$d live reports • tap one for route &amp; map</item>
+        <item quantity="one">%1$s • %2$d likely-active report • tap to pin route</item>
+        <item quantity="other">%1$s • %2$d likely-active reports • tap to pin route</item>
     </plurals>
     <string name="overlay_bubble_text">%1$s\n%2$d</string>
     <string name="widget_tap_to_open">Tap to open</string>

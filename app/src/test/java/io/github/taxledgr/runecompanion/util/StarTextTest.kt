@@ -18,10 +18,34 @@ class StarTextTest {
     @Test
     fun `estimates remaining star layers at seven minutes each`() {
         assertEquals(
-            "Estimate: up to 48 min left",
+            "Community estimate • 48 min remaining",
             starTimingSummary(
                 calledAt = now.minusSeconds(60),
                 tier = 7,
+                minimumArrival = null,
+                maximumArrival = null,
+                now = now,
+            ),
+        )
+    }
+
+    @Test
+    fun `warns when a report is ending soon or its estimate passed`() {
+        assertEquals(
+            "Ending soon • est. 2 min remaining",
+            starTimingSummary(
+                calledAt = now.minusSeconds(5 * 60),
+                tier = 1,
+                minimumArrival = null,
+                maximumArrival = null,
+                now = now,
+            ),
+        )
+        assertEquals(
+            "Estimate expired • confirm before travelling",
+            starTimingSummary(
+                calledAt = now.minusSeconds(8 * 60),
+                tier = 1,
                 minimumArrival = null,
                 maximumArrival = null,
                 now = now,

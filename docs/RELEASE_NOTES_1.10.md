@@ -1,5 +1,18 @@
 # Rune Companion 1.10
 
+## 1.10.8 reliable Shooting Star targets
+
+- Raw Star Miners rows are labelled as community reports, not guaranteed live
+  stars.
+- Reports whose estimated depletion window has passed are hidden from the app,
+  overlay, and alerts.
+- When multiple reports exist for one world, only its newest location is used.
+- Likely-active reports are ordered by estimated remaining time.
+- An expanded overlay route now stays pinned through rescouted tier and report
+  timestamp changes.
+- Ending-soon reports carry an explicit warning.
+- Version `1.10.8` uses Android version code `34`.
+
 ## 1.10.7 stateful Wiki minimising
 
 - The in-overlay Wiki reader now includes a **Minimise** control.
