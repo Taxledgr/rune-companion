@@ -392,6 +392,7 @@ class OverlayService :
         overlayView = root
         applyOverlayAppearance(useStoredPlacement = true)
         renderActiveModule()
+        minimiseToBubble()
     }
 
     private fun beginRefreshing() {
@@ -911,6 +912,7 @@ class OverlayService :
         }
         bubbleX = overlayParams.x
         bubbleY = overlayParams.y
+        overlayView?.let { windowManager.updateViewLayout(it, overlayParams) }
     }
 
     private fun restorePanel() {

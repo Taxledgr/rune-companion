@@ -1,5 +1,12 @@
 # Rune Companion 1.10
 
+## 1.10.5 bubble-first overlay
+
+- Every new overlay session starts as the compact floating bubble.
+- Minimising the panel immediately resizes and moves the overlay window to the
+  bubble bounds, avoiding an invisible full-panel touch area.
+- Version `1.10.5` uses Android version code `31`.
+
 ## 1.10.4 in-overlay quest Wiki
 
 - Wiki links opened from a quest guide in the enlarged floating editor stay in
