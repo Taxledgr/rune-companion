@@ -142,6 +142,8 @@ fun WikiReaderScreen(
     initialUrl: String,
     onClose: () -> Unit,
     onOpenExternal: (String) -> Unit,
+    closeLabel: String = "Close",
+    onDismiss: (() -> Unit)? = null,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -173,7 +175,10 @@ fun WikiReaderScreen(
                     maxLines = 1,
                     fontWeight = FontWeight.Bold,
                 )
-                OutlinedButton(onClick = onClose) { Text("Close") }
+                OutlinedButton(onClick = onClose) { Text(closeLabel) }
+                if (onDismiss != null) {
+                    OutlinedButton(onClick = onDismiss) { Text("Done") }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 OutlinedTextField(

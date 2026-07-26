@@ -7,11 +7,14 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.taxledgr.runecompanion.features.FeatureViewModel
@@ -21,8 +24,8 @@ import io.github.taxledgr.runecompanion.ui.OverlayEditorFrame
 import io.github.taxledgr.runecompanion.ui.RuneCompanionApp
 import io.github.taxledgr.runecompanion.ui.RuneCompanionShell
 import io.github.taxledgr.runecompanion.ui.StarViewModel
+import io.github.taxledgr.runecompanion.ui.WikiReaderScreen
 import io.github.taxledgr.runecompanion.ui.theme.RuneCompanionTheme
-import io.github.taxledgr.runecompanion.util.TrustedUrlPolicy
 import io.github.taxledgr.runecompanion.util.openTrustedExternalUrl
 
 @Composable
@@ -49,20 +52,27 @@ fun OverlayEditorContent(
     var personalizationSettings by remember {
         mutableStateOf(initialPersonalizationSettings)
     }
+    var activeWikiUrl by remember { mutableStateOf<String?>(null) }
     val editorRoute = module.editorRoute()
     val notificationPermissionGranted = canPostNotifications(context)
     val openIntent: (Intent) -> Unit = { intent ->
         onClose()
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
+    val openExternalUrl: (String) -> Unit = { url ->
+        routeOverlayLink(url)
+            ?.takeIf { it.target == OverlayLinkTarget.EXTERNAL_BROWSER }
+            ?.let { route ->
+                onClose()
+                context.openTrustedExternalUrl(route.url)
+            }
+    }
     val openUrl: (String) -> Unit = { url ->
-        val trustedUrl = TrustedUrlPolicy.normalizeHttpsUrl(
-            url,
-            TrustedUrlPolicy.externalHosts,
-        )
-        if (trustedUrl != null) {
-            onClose()
-            context.openTrustedExternalUrl(trustedUrl)
+        routeOverlayLink(url)?.let { route ->
+            when (route.target) {
+                OverlayLinkTarget.IN_OVERLAY_WIKI -> activeWikiUrl = route.url
+                OverlayLinkTarget.EXTERNAL_BROWSER -> openExternalUrl(route.url)
+            }
         }
     }
     val openNotificationSettings = {
@@ -74,6 +84,19 @@ fun OverlayEditorContent(
     }
 
     RuneCompanionTheme(layoutDensity = personalizationSettings.overlayDensity) {
+        val wikiUrl = activeWikiUrl
+        if (wikiUrl != null) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+                WikiReaderScreen(
+                    initialUrl = wikiUrl,
+                    onClose = { activeWikiUrl = null },
+                    onOpenExternal = openExternalUrl,
+                    closeLabel = "Guide",
+                    onDismiss = onClose,
+                )
+            }
+            return@RuneCompanionTheme
+        }
         OverlayEditorFrame(
             sectionLabel = module.label,
             onClose = onClose,

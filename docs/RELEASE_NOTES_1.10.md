@@ -1,5 +1,15 @@
 # Rune Companion 1.10
 
+## 1.10.4 in-overlay quest Wiki
+
+- Wiki links opened from a quest guide in the enlarged floating editor stay in
+  the overlay instead of handing the player to a separate browser.
+- **Guide** returns to the saved quest walkthrough and **Done** closes the
+  overlay.
+- The reader keeps the existing strict OSRS Wiki host allowlist and private
+  WebView configuration.
+- Version `1.10.4` uses Android version code `30`.
+
 ## 1.10.3 portrait navigation clearance
 
 - The compact 68dp app navigation now sits above the runtime-reported Android

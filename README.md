@@ -5,6 +5,17 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Version 1.10.4
+
+- Quest Wiki links opened from the enlarged floating editor now stay inside the
+  overlay, keeping the live guide visible over Old School RuneScape.
+- The private Wiki reader includes a **Guide** action to return to the saved
+  quest steps and a **Done** action to close the overlay.
+- Wiki pages remain restricted to the exact HTTPS OSRS Wiki host, with
+  JavaScript, file access, third-party cookies, and mixed content disabled.
+- Version 1.10.4 uses Android version code 30 and updates version 1.10.3 in
+  place without deleting saved companion data.
+
 ## Version 1.10.3
 
 - The compact bottom navigation now reserves the phone's real Android
