@@ -5,6 +5,19 @@ Rune Companion is a passive Android companion for Old School RuneScape mobile. I
 > [!IMPORTANT]
 > Rune Companion is an independent community project. It is not affiliated with, endorsed by, or sponsored by Jagex, RuneScape, Old School RuneScape, RuneLite, or Star Miners.
 
+## Download
+
+The current public testing build is available from the
+[latest Rune Companion release](https://github.com/Taxledgr/rune-companion/releases/latest).
+Download the APK asset rather than the automatically generated source-code
+archives. See the [Android installation guide](docs/INSTALLING.md) for safe
+installation, updating, and checksum verification.
+
+> [!WARNING]
+> Version 1.10.7 is a debug-signed public testing build. It is suitable for
+> testing with the current feature set, but it is not yet a permanently
+> release-signed production build.
+
 ## Version 1.10.7
 
 - Wiki pages opened from the floating quest guide now have a **Minimise**
