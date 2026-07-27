@@ -34,8 +34,10 @@ class MainActivity : ComponentActivity() {
                 val overlayRunning = OverlayService.running.collectAsStateWithLifecycle()
                 val notificationPermission = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
-                ) { granted ->
-                    if (granted) startOverlay(this)
+                ) {
+                    // The overlay works without POST_NOTIFICATIONS; denial only
+                    // hides the foreground-service notification.
+                    startOverlay(this)
                 }
 
                 RuneCompanionApp(
@@ -73,12 +75,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openOverlaySettings() {
-        startActivity(
-            Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName"),
-            ),
-        )
+        // Some OEM builds do not handle the package-specific variant.
+        runCatching {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                ),
+            )
+        }.recoverCatching {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        }
     }
 
     private fun openStarMiners() {
