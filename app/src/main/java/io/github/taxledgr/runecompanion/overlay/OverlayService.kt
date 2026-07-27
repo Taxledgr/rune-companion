@@ -122,7 +122,7 @@ class OverlayService : Service() {
         }.also(root::addView)
 
         val params = WindowManager.LayoutParams(
-            dp(310),
+            minOf(dp(PANEL_WIDTH_DP), resources.displayMetrics.widthPixels - dp(28)),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -306,6 +306,7 @@ class OverlayService : Service() {
         private const val ACTION_STOP = "io.github.taxledgr.runecompanion.STOP_OVERLAY"
         private const val REFRESH_INTERVAL_MS = 60_000L
         private const val MAX_OVERLAY_STARS = 5
+        private const val PANEL_WIDTH_DP = 310
 
         private val _running = MutableStateFlow(false)
         val running = _running.asStateFlow()

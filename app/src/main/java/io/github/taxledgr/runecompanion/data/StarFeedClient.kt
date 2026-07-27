@@ -48,9 +48,12 @@ object ShootingStarJsonParser {
         val array = JSONArray(json)
         return buildList {
             for (index in 0 until array.length()) {
-                add(array.getJSONObject(index).toShootingStar())
+                val entry = array.optJSONObject(index) ?: continue
+                runCatching { entry.toShootingStar() }.getOrNull()?.let(::add)
             }
-        }.sortedByDescending(ShootingStar::calledAt)
+        }
+            .distinctBy { Triple(it.world, it.locationId, it.calledAt) }
+            .sortedByDescending(ShootingStar::calledAt)
     }
 
     private fun JSONObject.toShootingStar() = ShootingStar(

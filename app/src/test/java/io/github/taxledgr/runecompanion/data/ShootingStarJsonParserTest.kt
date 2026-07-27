@@ -41,4 +41,34 @@ class ShootingStarJsonParserTest {
         assertEquals(Instant.ofEpochSecond(1700000200), result.first().minimumArrival)
         assertNull(result.last().minimumArrival)
     }
+
+    @Test
+    fun `skips malformed entries instead of failing the whole feed`() {
+        val json = """
+            [
+              {"world": 301, "location": 12, "calledAt": 1700000000.0, "tier": 4},
+              {"tier": 9},
+              "not an object",
+              {"world": 302, "location": 15, "calledAt": 1700000100.0, "tier": 7}
+            ]
+        """.trimIndent()
+
+        val result = ShootingStarJsonParser.parse(json)
+
+        assertEquals(listOf(302, 301), result.map(ShootingStar::world))
+        assertEquals("Unknown scout", result.first().calledBy)
+        assertEquals("Unknown location", result.first().locationName)
+    }
+
+    @Test
+    fun `removes duplicate reports`() {
+        val json = """
+            [
+              {"world": 301, "location": 12, "calledAt": 1700000000.0, "tier": 4},
+              {"world": 301, "location": 12, "calledAt": 1700000000.0, "tier": 4}
+            ]
+        """.trimIndent()
+
+        assertEquals(1, ShootingStarJsonParser.parse(json).size)
+    }
 }
