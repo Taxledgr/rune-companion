@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -13,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.taxledgr.runecompanion.overlay.OverlayService
@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
             startActivity(
                 Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName"),
+                    "package:$packageName".toUri(),
                 ),
             )
         }.recoverCatching {
@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
 
     private fun openStarMiners() {
         startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse("https://map.starminers.site/")),
+            Intent(Intent.ACTION_VIEW, "https://map.starminers.site/".toUri()),
         )
     }
 }

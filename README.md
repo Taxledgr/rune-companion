@@ -46,7 +46,7 @@ Please use the Star Miners service respectfully. If its maintainers publish an o
 
 Requirements:
 
-- Android Studio with Android SDK 35
+- Android Studio with Android SDK 37
 - JDK 17 or newer
 
 Open the repository in Android Studio, let Gradle sync, and run the `app` configuration on an Android 9.0 (API 28) or newer device.
